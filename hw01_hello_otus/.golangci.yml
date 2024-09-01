@@ -1,0 +1,23 @@
+linters:
+  disable:
+    - exportloopref
+  enable:
+    - copyloopvar
+    - gci
+
+linters-settings:
+  gci:
+    skip-generated: true
+    sections:
+      - standard
+      - default
+      - "prefix(golang.org/x/example/hello/reverse)"
+
+run:
+  timeout: 5m
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck

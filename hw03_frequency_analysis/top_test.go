@@ -3,6 +3,7 @@ package hw03frequencyanalysis
 import (
 	"testing"
 
+	//nolint:depguard
 	"github.com/stretchr/testify/require"
 )
 

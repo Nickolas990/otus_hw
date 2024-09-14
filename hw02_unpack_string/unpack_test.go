@@ -44,3 +44,35 @@ func TestUnpackInvalidString(t *testing.T) {
 		})
 	}
 }
+
+func TestUnpackCustom(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+		err      bool
+	}{
+		{input: "", expected: "", err: false},
+		{input: "a", expected: "a", err: false},
+		{input: "a1b", expected: "ab", err: false},
+		{input: `a\\b`, expected: `a\b`, err: false},
+		{input: "a11b", expected: "", err: true},
+		{input: "a2b3", expected: "aabbb", err: false},
+		{input: `a\2b\3`, expected: `a2b3`, err: false},
+		{input: `a\12b`, expected: `a11b`, err: false},
+		{input: `a1\2b\3c4\5`, expected: `a2b3cccc5`, err: false},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.input, func(t *testing.T) {
+			result, err := Unpack(tc.input)
+			if err != nil && !tc.err {
+				t.Errorf("Unpack(%q) returned error %v, want nil", tc.input, err)
+			} else if err == nil && tc.err {
+				t.Errorf("Unpack(%q) returned nil, want error", tc.input)
+			} else if result != tc.expected {
+				t.Errorf("Unpack(%q) returned %q, want %q", tc.input, result, tc.expected)
+			}
+		})
+	}
+}

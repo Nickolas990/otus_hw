@@ -1,4 +1,4 @@
-package main
+package hw02unpackstring
 
 import (
 	"errors"
@@ -66,11 +66,12 @@ func TestUnpackCustom(t *testing.T) {
 		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			result, err := Unpack(tc.input)
-			if err != nil && !tc.err {
+			switch {
+			case err != nil && !tc.err:
 				t.Errorf("Unpack(%q) returned error %v, want nil", tc.input, err)
-			} else if err == nil && tc.err {
+			case err == nil && tc.err:
 				t.Errorf("Unpack(%q) returned nil, want error", tc.input)
-			} else if result != tc.expected {
+			case result != tc.expected:
 				t.Errorf("Unpack(%q) returned %q, want %q", tc.input, result, tc.expected)
 			}
 		})

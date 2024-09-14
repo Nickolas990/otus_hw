@@ -47,7 +47,6 @@ func Unpack(input string) (string, error) {
 }
 
 func handleEscapedCharacter(r rune, prev *rune) error {
-
 	if !unicode.IsDigit(r) && r != '\\' {
 		return ErrInvalidString
 	}

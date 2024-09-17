@@ -18,7 +18,6 @@ func Unpack(input string) (string, error) {
 	var escaped bool
 
 	for i, r := range input {
-
 		if escaped {
 			if err := handleEscapedCharacter(r, &prev); err != nil {
 				return "", err

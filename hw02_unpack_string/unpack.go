@@ -17,7 +17,8 @@ func Unpack(input string) (string, error) {
 	var prev rune
 	var escaped bool
 
-	for _, r := range input {
+	for i, r := range input {
+
 		if escaped {
 			if err := handleEscapedCharacter(r, &prev); err != nil {
 				return "", err
@@ -26,7 +27,9 @@ func Unpack(input string) (string, error) {
 			continue
 		}
 
-		if r == '\\' {
+		if r == '\\' && i == len(input)-1 {
+			return "", ErrInvalidString
+		} else if r == '\\' {
 			escaped = true
 			appendPreviousCharacter(&result, &prev)
 			continue

@@ -2,6 +2,7 @@ package hw03frequencyanalysis
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -22,10 +23,7 @@ func Top10(text string) []string {
 
 	for _, word := range words {
 		if word != "-" {
-			cleanedWord := strings.Trim(word, ".,?!:;\"()—-[]{}'´/\\")
-			if cleanedWord != "" {
-				wordCount[cleanedWord]++
-			}
+			wordCount[word]++
 		}
 	}
 
@@ -54,8 +52,9 @@ func Top10(text string) []string {
 }
 
 func processWords(text string) ([]string, error) {
-	text = strings.ToLower(text)
-	words := strings.Fields(text)
+	lowerText := strings.ToLower(text)
+	re := regexp.MustCompile(`[\p{L}-]+`)
+	words := re.FindAllString(lowerText, -1)
 	if len(words) == 0 {
 		return nil, fmt.Errorf("incorrect text")
 	}

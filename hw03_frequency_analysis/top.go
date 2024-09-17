@@ -1,6 +1,7 @@
 package hw03frequencyanalysis
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -12,18 +13,17 @@ type WordFrequency struct {
 
 func Top10(text string) []string {
 	// Place your code here.
-	if !isCorrect(text) {
+	words, errorText := processWords(text)
+	if errorText != nil {
 		return []string{}
 	}
-
-	words := strings.Fields(strings.ToLower(text))
 
 	wordCount := make(map[string]int)
 
 	for _, word := range words {
 		if word != "-" {
-			cleanWord := strings.Trim(word, "!?,.;")
-			wordCount[cleanWord]++
+			cleanedWord := strings.Trim(word, ".,?!:;\"\"()—-...[]{}'´/\\")
+			wordCount[cleanedWord]++
 		}
 	}
 
@@ -39,18 +39,23 @@ func Top10(text string) []string {
 		return wordFrequencies[i].Frequency > wordFrequencies[j].Frequency
 	})
 
-	top10 := make([]string, 0, 10)
+	top10 := make([]string, 0)
 
 	for _, wordFrequency := range wordFrequencies {
+		if len(top10) == 10 {
+			break
+		}
 		top10 = append(top10, wordFrequency.Word)
 	}
 
-	return top10[:10]
+	return top10
 }
 
-func isCorrect(text string) (result bool) {
-	if text == "" || strings.Trim(text, " \t\r\n!?,.;") == "" {
-		return false
+func processWords(text string) ([]string, error) {
+	text = strings.ToLower(text)
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return nil, fmt.Errorf("incorrect text")
 	}
-	return true
+	return words, nil
 }

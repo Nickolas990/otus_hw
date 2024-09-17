@@ -22,7 +22,7 @@ func Top10(text string) []string {
 
 	for _, word := range words {
 		if word != "-" {
-			cleanedWord := strings.Trim(word, ".,?!:;\"\"()—-...[]{}'´/\\")
+			cleanedWord := strings.Trim(word, ".,?!:;\"()—-[]{}'´/\\")
 			if cleanedWord != "" {
 				wordCount[cleanedWord]++
 			}
@@ -55,7 +55,6 @@ func Top10(text string) []string {
 
 func processWords(text string) ([]string, error) {
 	text = strings.ToLower(text)
-	text = strings.Trim(text, ".,?!:;\"\"()—-...[]{}'´/\\")
 	words := strings.Fields(text)
 	if len(words) == 0 {
 		return nil, fmt.Errorf("incorrect text")

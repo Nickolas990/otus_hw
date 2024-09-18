@@ -61,6 +61,7 @@ func TestUnpackCustom(t *testing.T) {
 		{input: `a\12b`, expected: `a11b`, err: false},
 		{input: `a1\2b\3c4\5`, expected: `a2b3cccc5`, err: false},
 		{input: `a1\2b\3c4\`, expected: "", err: true},
+		{input: `aaa\`, expected: "", err: true},
 	}
 
 	for _, tc := range tests {

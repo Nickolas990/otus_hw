@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	//nolint:depguard
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
@@ -68,6 +69,10 @@ func TestRun(t *testing.T) {
 		require.Equal(t, runTasksCount, int32(tasksCount), "not all tasks were completed")
 		require.LessOrEqual(t, int64(elapsedTime), int64(sumTime/2), "tasks were run sequentially?")
 	})
+}
+
+func TestRunCustom(t *testing.T) {
+	defer goleak.VerifyNone(t)
 
 	t.Run("eventually complete", func(t *testing.T) {
 		var wg sync.WaitGroup

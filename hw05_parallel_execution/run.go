@@ -19,9 +19,12 @@ func Run(tasks []Task, n, m int) error {
 	doneChan := make(chan struct{})
 	var wg sync.WaitGroup
 	var errs int
+	var mu sync.Mutex
 	var once sync.Once
 
 	handleError := func() {
+		mu.Lock()
+		defer mu.Unlock()
 		errs++
 		if errs >= m {
 			once.Do(func() {
@@ -64,6 +67,9 @@ func Run(tasks []Task, n, m int) error {
 	}()
 
 	wg.Wait()
+
+	mu.Lock()
+	defer mu.Unlock()
 	if errs >= m {
 		return ErrErrorsLimitExceeded
 	}

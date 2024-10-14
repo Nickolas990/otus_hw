@@ -68,8 +68,6 @@ func Run(tasks []Task, n, m int) error {
 
 	wg.Wait()
 
-	mu.Lock()
-	defer mu.Unlock()
 	if errs >= m {
 		return ErrErrorsLimitExceeded
 	}

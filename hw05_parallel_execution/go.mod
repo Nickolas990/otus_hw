@@ -1,4 +1,4 @@
-module github.com/Nickolas990/hw05_parallel_execution
+module github.com/Nickolas990/otus_hw/hw05_parallel_execution
 
 go 1.22
 

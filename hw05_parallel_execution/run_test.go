@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	//nolint:depguard
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
@@ -66,5 +68,106 @@ func TestRun(t *testing.T) {
 
 		require.Equal(t, runTasksCount, int32(tasksCount), "not all tasks were completed")
 		require.LessOrEqual(t, int64(elapsedTime), int64(sumTime/2), "tasks were run sequentially?")
+	})
+}
+
+func TestRunCustom(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	t.Run("eventually complete", func(t *testing.T) {
+		var wg sync.WaitGroup
+
+		tasks := []Task{
+			func() error {
+				<-time.After(time.Second)
+				return nil
+			},
+			func() error {
+				<-time.After(time.Second * 2)
+				return nil
+			},
+		}
+
+		wg.Add(len(tasks))
+		done := make(chan struct{})
+		for _, task := range tasks {
+			go func(task Task) {
+				defer wg.Done()
+				err := task()
+				if err != nil {
+					return
+				}
+			}(task)
+		}
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+		go func() {
+			err := Run(tasks, 2, 1)
+			if err != nil {
+				return
+			}
+		}()
+		require.Eventually(t, func() bool {
+			select {
+			case <-done:
+				return true
+			default:
+				return false
+			}
+		}, time.Second*5, time.Millisecond*100)
+	})
+
+	t.Run("all tasks completed", func(t *testing.T) {
+		tasks := make([]Task, 10)
+		for i := range tasks {
+			tasks[i] = func() error {
+				return nil
+			}
+		}
+		err := Run(tasks, 5, 1)
+		require.NoError(t, err)
+	})
+
+	t.Run("all tasks failed", func(t *testing.T) {
+		tasks := make([]Task, 10)
+		for i := range tasks {
+			tasks[i] = func() error {
+				return errors.New("test error")
+			}
+		}
+		err := Run(tasks, 5, 1)
+		require.Error(t, err)
+	})
+
+	t.Run("first m tasks failed", func(t *testing.T) {
+		tasks := make([]Task, 10)
+		for i := range tasks {
+			if i < 3 {
+				tasks[i] = func() error {
+					return errors.New("test error")
+				}
+			} else {
+				tasks[i] = func() error {
+					return nil
+				}
+			}
+		}
+		err := Run(tasks, 5, 3)
+		require.Error(t, err)
+	})
+
+	t.Run("errors limit is zero or negative", func(t *testing.T) {
+		tasks := []Task{
+			func() error { return nil },
+			func() error { return errors.New("error") },
+		}
+
+		err := Run(tasks, 2, 0)
+		require.ErrorIs(t, err, ErrErrorsLimitExceeded)
+
+		err = Run(tasks, 2, -1)
+		require.ErrorIs(t, err, ErrErrorsLimitExceeded)
 	})
 }

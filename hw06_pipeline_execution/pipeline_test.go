@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	//nolint:depguard
 	"github.com/stretchr/testify/require"
 )
 
@@ -150,6 +151,246 @@ func TestAllStageStop(t *testing.T) {
 		wg.Wait()
 
 		require.Len(t, result, 0)
-
 	})
+}
+
+func TestExecutePipeline(t *testing.T) {
+	t.Run("simple pipeline", testSimplePipeline)
+	t.Run("pipeline with done signal", testPipelineWithDoneSignal)
+	t.Run("pipeline with varying stage durations", testPipelineWithVaryingStageDurations)
+	t.Run("pipeline with early done signal", testPipelineWithEarlyDoneSignal)
+	t.Run("pipeline with large data set", testPipelineWithLargeDataSet)
+}
+
+func testSimplePipeline(t *testing.T) {
+	in := make(chan interface{})
+	done := make(chan interface{})
+
+	stage1 := func(in In) Out {
+		out := make(Bi)
+		go func() {
+			defer close(out)
+			for v := range in {
+				out <- v.(int) * 2
+			}
+		}()
+		return out
+	}
+
+	stage2 := func(in In) Out {
+		out := make(Bi)
+		go func() {
+			defer close(out)
+			for v := range in {
+				out <- v.(int) + 1
+			}
+		}()
+		return out
+	}
+
+	out := ExecutePipeline(in, done, stage1, stage2)
+
+	go func() {
+		defer close(in)
+		in <- 1
+		in <- 2
+		in <- 3
+	}()
+
+	results := make([]int, 0, 5)
+	for v := range out {
+		results = append(results, v.(int))
+	}
+
+	require.Equal(t, []int{3, 5, 7}, results)
+}
+
+func testPipelineWithDoneSignal(t *testing.T) {
+	in := make(chan interface{})
+	done := make(chan interface{})
+
+	stage1 := func(in In) Out {
+		out := make(Bi)
+		go func() {
+			defer close(out)
+			for v := range in {
+				out <- v.(int) * 2
+			}
+		}()
+		return out
+	}
+
+	stage2 := func(in In) Out {
+		out := make(Bi)
+		go func() {
+			defer close(out)
+			for v := range in {
+				out <- v.(int) + 1
+			}
+		}()
+		return out
+	}
+
+	out := ExecutePipeline(in, done, stage1, stage2)
+
+	go func() {
+		defer close(in)
+		in <- 1
+		in <- 2
+		in <- 3
+	}()
+
+	go func() {
+		time.Sleep(1 * time.Second) // Give some time to process
+		close(done)
+	}()
+
+	results := make([]int, 0, 5)
+	for v := range out {
+		results = append(results, v.(int))
+	}
+
+	// Since the pipeline should stop early, we may not get all results
+	require.LessOrEqual(t, len(results), 3)
+}
+
+func testPipelineWithVaryingStageDurations(t *testing.T) {
+	in := make(chan interface{})
+	done := make(chan interface{})
+
+	stage1 := func(in In) Out {
+		out := make(Bi)
+		go func() {
+			defer close(out)
+			for v := range in {
+				time.Sleep(50 * time.Millisecond)
+				out <- v.(int) * 2
+			}
+		}()
+		return out
+	}
+
+	stage2 := func(in In) Out {
+		out := make(Bi)
+		go func() {
+			defer close(out)
+			for v := range in {
+				time.Sleep(100 * time.Millisecond)
+				out <- v.(int) + 1
+			}
+		}()
+		return out
+	}
+
+	out := ExecutePipeline(in, done, stage1, stage2)
+
+	go func() {
+		defer close(in)
+		for i := 1; i <= 5; i++ {
+			in <- i
+		}
+	}()
+
+	results := make([]int, 0, 5)
+	for v := range out {
+		results = append(results, v.(int))
+	}
+
+	require.Equal(t, []int{3, 5, 7, 9, 11}, results)
+}
+
+func testPipelineWithEarlyDoneSignal(t *testing.T) {
+	in := make(chan interface{})
+	done := make(chan interface{})
+
+	stage1 := func(in In) Out {
+		out := make(Bi)
+		go func() {
+			defer close(out)
+			for v := range in {
+				time.Sleep(100 * time.Millisecond)
+				out <- v.(int) * 2
+			}
+		}()
+		return out
+	}
+
+	stage2 := func(in In) Out {
+		out := make(Bi)
+		go func() {
+			defer close(out)
+			for v := range in {
+				time.Sleep(100 * time.Millisecond)
+				out <- v.(int) + 1
+			}
+		}()
+		return out
+	}
+
+	out := ExecutePipeline(in, done, stage1, stage2)
+
+	go func() {
+		defer close(in)
+		for i := 1; i <= 5; i++ {
+			in <- i
+		}
+	}()
+
+	go func() {
+		time.Sleep(150 * time.Millisecond) // Close done before all stages complete
+		close(done)
+	}()
+
+	results := make([]int, 0, 5)
+	for v := range out {
+		results = append(results, v.(int))
+	}
+
+	require.LessOrEqual(t, len(results), 2)
+}
+
+func testPipelineWithLargeDataSet(t *testing.T) {
+	in := make(chan interface{})
+	done := make(chan interface{})
+
+	stage1 := func(in In) Out {
+		out := make(Bi)
+		go func() {
+			defer close(out)
+			for v := range in {
+				out <- v.(int) * 2
+			}
+		}()
+		return out
+	}
+
+	stage2 := func(in In) Out {
+		out := make(Bi)
+		go func() {
+			defer close(out)
+			for v := range in {
+				out <- v.(int) + 1
+			}
+		}()
+		return out
+	}
+
+	out := ExecutePipeline(in, done, stage1, stage2)
+
+	go func() {
+		defer close(in)
+		for i := 1; i <= 1000; i++ {
+			in <- i
+		}
+	}()
+
+	results := make([]int, 0, 5)
+	for v := range out {
+		results = append(results, v.(int))
+	}
+
+	require.Equal(t, 1000, len(results))
+	for i, v := range results {
+		require.Equal(t, (i+1)*2+1, v)
+	}
 }

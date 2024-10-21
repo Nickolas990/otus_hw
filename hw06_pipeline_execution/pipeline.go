@@ -1,6 +1,9 @@
 package hw06pipelineexecution
 
-import "log"
+import (
+	"log"
+	"sync"
+)
 
 type (
 	In  = <-chan interface{}
@@ -20,6 +23,7 @@ func ExecutePipeline(in In, done In, stages ...Stage) Out {
 func stageWrapper(in In, done In, stage Stage) Out {
 	out := make(Bi)
 	proxy := make(Bi)
+	var mu sync.Mutex
 
 	go func() {
 		defer close(proxy)
@@ -51,9 +55,12 @@ func stageWrapper(in In, done In, stage Stage) Out {
 					return
 				}
 				select {
-				case out <- v:
 				case <-done:
 					return
+				default:
+					mu.Lock()
+					out <- v
+					mu.Unlock()
 				}
 			case <-done:
 				return

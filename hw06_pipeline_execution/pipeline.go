@@ -19,9 +19,31 @@ func ExecutePipeline(in In, done In, stages ...Stage) Out {
 
 func stageWrapper(in In, done In, stage Stage) Out {
 	out := make(Bi)
+	proxy := make(Bi)
+
+	go func() {
+		defer close(proxy)
+		for {
+			select {
+			case v, ok := <-in:
+				if !ok {
+					return
+				}
+				select {
+				case proxy <- v:
+				case <-done:
+					return
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
+
 	go func() {
 		defer close(out)
-		stageOut := stage(in)
+		stageOut := stage(proxy)
+		defer drain(stageOut)
 		for {
 			select {
 			case v, ok := <-stageOut:
@@ -31,11 +53,9 @@ func stageWrapper(in In, done In, stage Stage) Out {
 				select {
 				case out <- v:
 				case <-done:
-					go drain(stageOut)
 					return
 				}
 			case <-done:
-				go drain(stageOut)
 				return
 			}
 		}

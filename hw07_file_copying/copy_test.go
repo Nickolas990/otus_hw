@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"runtime"
 	"testing"
 
 	//nolint:depguard
@@ -13,16 +14,15 @@ func TestCopy(t *testing.T) {
 	srcContent := []byte("Hello, World!")
 	srcFile, err := os.CreateTemp("", "srcFile")
 	require.NoError(t, err)
+
 	_, err = srcFile.Write(srcContent)
 	require.NoError(t, err)
-	err = srcFile.Close()
-	if err != nil {
-		log.Fatalf("failed to close source file: %v", err)
-		return
-	}
+	srcFile.Close()
 
 	tests := []struct {
 		name        string
+		fromPath    string
+		toPath      string
 		offset      int64
 		limit       int64
 		expected    string
@@ -30,6 +30,8 @@ func TestCopy(t *testing.T) {
 	}{
 		{
 			name:        "Copy full file",
+			fromPath:    srcFile.Name(),
+			toPath:      "destFile",
 			offset:      0,
 			limit:       0,
 			expected:    "Hello, World!",
@@ -37,6 +39,8 @@ func TestCopy(t *testing.T) {
 		},
 		{
 			name:        "Copy with offset",
+			fromPath:    srcFile.Name(),
+			toPath:      "destFile",
 			offset:      7,
 			limit:       0,
 			expected:    "World!",
@@ -44,6 +48,8 @@ func TestCopy(t *testing.T) {
 		},
 		{
 			name:        "Copy with limit",
+			fromPath:    srcFile.Name(),
+			toPath:      "destFile",
 			offset:      0,
 			limit:       5,
 			expected:    "Hello",
@@ -51,6 +57,8 @@ func TestCopy(t *testing.T) {
 		},
 		{
 			name:        "Copy with offset and limit",
+			fromPath:    srcFile.Name(),
+			toPath:      "destFile",
 			offset:      7,
 			limit:       5,
 			expected:    "World",
@@ -58,10 +66,21 @@ func TestCopy(t *testing.T) {
 		},
 		{
 			name:        "Offset exceeds file size",
+			fromPath:    srcFile.Name(),
+			toPath:      "destFile",
 			offset:      int64(len(srcContent)) + 1,
 			limit:       0,
 			expected:    "",
 			expectError: ErrOffsetExceedsFileSize,
+		},
+		{
+			name:        "Source and destination are the same",
+			fromPath:    srcFile.Name(),
+			toPath:      srcFile.Name(),
+			offset:      0,
+			limit:       0,
+			expected:    "Hello, World!",
+			expectError: nil,
 		},
 	}
 
@@ -101,4 +120,23 @@ func TestCopy(t *testing.T) {
 		log.Fatalf("failed to remove source file: %v", err)
 		return
 	}
+}
+func TestUnsupportedFile(t *testing.T) {
+	var unsupportedFile string
+
+	if runtime.GOOS == "windows" {
+		unsupportedFile = "CON"
+	} else {
+		unsupportedFile = "/dev/null"
+	}
+
+	destFile, err := os.CreateTemp("", "destFile")
+	require.NoError(t, err)
+	defer func() {
+		destFile.Close()
+		os.Remove(destFile.Name())
+	}()
+
+	err = Copy(unsupportedFile, destFile.Name(), 0, 0)
+	require.Equal(t, ErrUnsupportedFile, err)
 }

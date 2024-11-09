@@ -19,6 +19,12 @@ var (
 func Copy(fromPath, toPath string, offset, limit int64) error {
 	fmt.Printf("Copying from %s to %s with offset %d and limit %d\n", fromPath, toPath, offset, limit)
 
+	// Проверка, что пути не совпадают
+	if fromPath == toPath {
+		log.Printf("Source and destination files are the same. No copy needed.")
+		return nil
+	}
+
 	srcFile, err := os.Open(fromPath)
 	if err != nil {
 		log.Printf("failed to open source file: %v", err)
@@ -31,6 +37,15 @@ func Copy(fromPath, toPath string, offset, limit int64) error {
 	if err != nil {
 		log.Printf("failed to stat source file: %v", err)
 		return err
+	}
+
+	if fileInfo.Size() < offset {
+		return ErrOffsetExceedsFileSize
+	}
+
+	// Проверка для специальных файлов
+	if !fileInfo.Mode().IsRegular() {
+		return ErrUnsupportedFile
 	}
 
 	if fileInfo.Size() < offset {

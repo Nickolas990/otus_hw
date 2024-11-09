@@ -19,12 +19,6 @@ var (
 func Copy(fromPath, toPath string, offset, limit int64) error {
 	fmt.Printf("Copying from %s to %s with offset %d and limit %d\n", fromPath, toPath, offset, limit)
 
-	// Проверка, что пути не совпадают
-	if fromPath == toPath {
-		log.Printf("Source and destination files are the same. No copy needed.")
-		return nil
-	}
-
 	srcFile, err := os.Open(fromPath)
 	if err != nil {
 		log.Printf("failed to open source file: %v", err)
@@ -52,7 +46,7 @@ func Copy(fromPath, toPath string, offset, limit int64) error {
 		return ErrOffsetExceedsFileSize
 	}
 
-	// Создание целевого файла
+	// Создание/открытие целевого файла
 	destFile, err := os.Create(toPath)
 	if err != nil {
 		log.Printf("failed to create destination file: %v", err)
@@ -64,6 +58,19 @@ func Copy(fromPath, toPath string, offset, limit int64) error {
 			log.Printf("failed to close destination file: %v", err)
 		}
 	}(destFile)
+
+	// Проверка информации о целевом файле
+	destInfo, err := destFile.Stat()
+	if err != nil {
+		log.Printf("failed to stat destination file: %v", err)
+		return err
+	}
+
+	// Использование os.SameFile для проверки, являются ли исходный и целевой файлы одним и тем же файлом
+	if os.SameFile(fileInfo, destInfo) {
+		log.Printf("Source and destination files are the same. No copy needed.")
+		return nil
+	}
 
 	// Установка смещения
 	_, err = srcFile.Seek(offset, io.SeekStart)

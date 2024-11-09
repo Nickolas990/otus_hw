@@ -33,10 +33,6 @@ func Copy(fromPath, toPath string, offset, limit int64) error {
 		return err
 	}
 
-	if fileInfo.Size() < offset {
-		return ErrOffsetExceedsFileSize
-	}
-
 	// Проверка для специальных файлов
 	if !fileInfo.Mode().IsRegular() {
 		return ErrUnsupportedFile
@@ -44,6 +40,13 @@ func Copy(fromPath, toPath string, offset, limit int64) error {
 
 	if fileInfo.Size() < offset {
 		return ErrOffsetExceedsFileSize
+	}
+
+	// Проверка, являются ли файлы одинаковыми
+	destInfo, err := os.Stat(toPath)
+	if err == nil && os.SameFile(fileInfo, destInfo) {
+		log.Printf("Source and destination files are the same. No copy needed.")
+		return nil
 	}
 
 	// Создание/открытие целевого файла
@@ -58,19 +61,6 @@ func Copy(fromPath, toPath string, offset, limit int64) error {
 			log.Printf("failed to close destination file: %v", err)
 		}
 	}(destFile)
-
-	// Проверка информации о целевом файле
-	destInfo, err := destFile.Stat()
-	if err != nil {
-		log.Printf("failed to stat destination file: %v", err)
-		return err
-	}
-
-	// Использование os.SameFile для проверки, являются ли исходный и целевой файлы одним и тем же файлом
-	if os.SameFile(fileInfo, destInfo) {
-		log.Printf("Source and destination files are the same. No copy needed.")
-		return nil
-	}
 
 	// Установка смещения
 	_, err = srcFile.Seek(offset, io.SeekStart)

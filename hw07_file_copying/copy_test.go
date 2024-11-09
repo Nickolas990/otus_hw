@@ -121,6 +121,7 @@ func TestCopy(t *testing.T) {
 		return
 	}
 }
+
 func TestUnsupportedFile(t *testing.T) {
 	var unsupportedFile string
 

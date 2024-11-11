@@ -47,17 +47,17 @@ func ReadDir(dir string) (Environment, error) {
 		}
 		f.Close()
 
-		fmt.Printf("Original content of %s: %q\n", name, content)
+		// fmt.Printf("Original content of %s: %q\n", name, content)
 
 		// Replace all null bytes with newlines
 		content = strings.ReplaceAll(content, "\x00", "\n")
-		fmt.Printf("Content after replacing null bytes with newlines: %q\n", content)
+		// fmt.Printf("Content after replacing null bytes with newlines: %q\n", content)
 
 		// Trim trailing spaces, tabs, but not newlines
 		value := strings.TrimRightFunc(content, func(r rune) bool {
 			return r == ' ' || r == '\t'
 		})
-		fmt.Printf("Trimmed value: %q\n", value)
+		// fmt.Printf("Trimmed value: %q\n", value)
 
 		envValue := EnvValue{
 			Value:      value,

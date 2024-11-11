@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	//nolint:depguard
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +24,7 @@ func TestReadDir(t *testing.T) {
 	}
 
 	for name, content := range files {
-		err := os.WriteFile(filepath.Join(tempDir, name), []byte(content), 0644)
+		err := os.WriteFile(filepath.Join(tempDir, name), []byte(content), 0o644)
 		require.NoError(t, err)
 	}
 

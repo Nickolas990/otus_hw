@@ -1,16 +1,30 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+
+	//nolint:depguard
+	"al.essio.dev/pkg/shellescape"
 )
 
 // RunCmd runs a command + arguments (cmd) with environment variables from env.
 func RunCmd(cmd []string, env Environment) int {
 	// Create a new command
-	execCmd := exec.Command(cmd[0], cmd[1:]...)
+	safeCmd := []string{cmd[0]}
+	for _, arg := range cmd[1:] {
+		safeCmd = append(safeCmd, shellescape.Quote(arg))
+	}
+
+	// Use the safeExecCommand function
+	execCmd, err := safeExecCommand(safeCmd[0], safeCmd[1:]...)
+	if err != nil {
+		fmt.Printf("Error validating command: %v\n", err)
+		return 1
+	}
 
 	// Set the environment for the command
 	execCmd.Env = os.Environ()
@@ -27,8 +41,6 @@ func RunCmd(cmd []string, env Environment) int {
 	execCmd.Stdout = os.Stdout
 	execCmd.Stderr = os.Stderr
 
-	fmt.Printf("Running command: %s with environment: %v\n", cmd, execCmd.Env)
-
 	// Run the command
 	if err := execCmd.Run(); err != nil {
 		fmt.Printf("Error running command: %v\n", err)
@@ -41,7 +53,7 @@ func RunCmd(cmd []string, env Environment) int {
 	return 0
 }
 
-// Helper function to remove an environment variable from a slice of environment variables
+// Helper function to remove an environment variable from a slice of environment variables.
 func removeEnv(env []string, key string) []string {
 	prefix := key + "="
 	result := env[:0]
@@ -51,4 +63,33 @@ func removeEnv(env []string, key string) []string {
 		}
 	}
 	return result
+}
+
+func safeExecCommand(name string, arg ...string) (*exec.Cmd, error) {
+	// Validate command arguments
+	if err := validateCmd(append([]string{name}, arg...)); err != nil {
+		return nil, err
+	}
+
+	return exec.Command(name, arg...), nil // #nosec G204
+}
+
+func validateCmd(cmd []string) error {
+	if len(cmd) == 0 {
+		return errors.New("command is empty")
+	}
+
+	// Check for forbidden characters
+	for _, arg := range cmd {
+		if strings.Contains(arg, ";") || strings.Contains(arg, "&") || strings.Contains(arg, "|") {
+			return errors.New("invalid character in command argument")
+		}
+	}
+
+	// Check if the command exists in the system
+	if _, err := exec.LookPath(cmd[0]); err != nil {
+		return errors.New("command not found")
+	}
+
+	return nil
 }

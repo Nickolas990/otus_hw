@@ -44,7 +44,8 @@ func RunCmd(cmd []string, env Environment) int {
 	// Run the command
 	if err := execCmd.Run(); err != nil {
 		fmt.Printf("Error running command: %v\n", err)
-		if exitError, ok := err.(*exec.ExitError); ok {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
 			return exitError.ExitCode()
 		}
 		return 1

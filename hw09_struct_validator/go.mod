@@ -1,4 +1,4 @@
-module github.com/fixme_my_friend/hw09_struct_validator
+module github.com/Nickolas990/otus_hw/hw08_envdir_tool
 
 go 1.22
 

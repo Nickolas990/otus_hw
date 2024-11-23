@@ -1,66 +1,50 @@
 package hw10programoptimization
 
 import (
-	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"regexp"
 	"strings"
+
+	//nolint:depguard
+	jsoniter "github.com/json-iterator/go"
 )
 
 type User struct {
-	ID       int
-	Name     string
-	Username string
-	Email    string
-	Phone    string
-	Password string
-	Address  string
+	Email string `json:"email"`
 }
 
 type DomainStat map[string]int
 
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
+
 func GetDomainStat(r io.Reader, domain string) (DomainStat, error) {
-	u, err := getUsers(r)
-	if err != nil {
-		return nil, fmt.Errorf("get users error: %w", err)
-	}
-	return countDomains(u, domain)
-}
-
-type users [100_000]User
-
-func getUsers(r io.Reader) (result users, err error) {
-	content, err := io.ReadAll(r)
-	if err != nil {
-		return
-	}
-
-	lines := strings.Split(string(content), "\n")
-	for i, line := range lines {
-		var user User
-		if err = json.Unmarshal([]byte(line), &user); err != nil {
-			return
-		}
-		result[i] = user
-	}
-	return
-}
-
-func countDomains(u users, domain string) (DomainStat, error) {
 	result := make(DomainStat)
+	domainRegexp := regexp.MustCompile(`@(.+\.)?` + regexp.QuoteMeta(domain) + `$`)
+	decoder := json.NewDecoder(r)
 
-	for _, user := range u {
-		matched, err := regexp.Match("\\."+domain, []byte(user.Email))
-		if err != nil {
+	for {
+		var user User
+		if err := decoder.Decode(&user); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
 			return nil, err
 		}
 
-		if matched {
-			num := result[strings.ToLower(strings.SplitN(user.Email, "@", 2)[1])]
-			num++
-			result[strings.ToLower(strings.SplitN(user.Email, "@", 2)[1])] = num
+		matches := domainRegexp.FindStringSubmatch(user.Email)
+		if len(matches) != 2 {
+			continue
 		}
+
+		domainPart := matches[1]
+		parts := strings.Split(domainPart, ".")
+		if len(parts) < 2 {
+			continue
+		}
+
+		secondLevelDomain := strings.ToLower(parts[len(parts)-2])
+		result[secondLevelDomain+"."+domain]++
 	}
+
 	return result, nil
 }

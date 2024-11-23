@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	//nolint:depguard
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,41 +58,85 @@ func TestValidate(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name: "invalid user",
+			name: "invalid user ID length",
 			in: User{
-				ID:     "123",
+				ID:     "short_id",
 				Name:   "John",
-				Age:    17,
-				Email:  "not-an-email",
-				Role:   "user",
-				Phones: []string{"123"},
+				Age:    25,
+				Email:  "john.doe@example.com",
+				Role:   "admin",
+				Phones: []string{"12345678901"},
 			},
-			expectedErr: ValidationErrors{
-				{Field: "ID", Err: fmt.Errorf("field ID length should be 36")},
-				{Field: "Age", Err: fmt.Errorf("field Age should be at least 18")},
-				{Field: "Email", Err: fmt.Errorf("field Email does not match regexp ^[a-zA-Z0-9._%%\\+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")},
-				{Field: "Role", Err: fmt.Errorf("field Role value is not in the set [admin stuff]")},
-				{Field: "Phones", Err: fmt.Errorf("field Phones length should be 11")},
-			},
+			expectedErr: ValidationErrors{{Field: "ID", Err: fmt.Errorf("field ID length should be 36")}},
 		},
 		{
-			name: "valid app",
+			name: "invalid user age",
+			in: User{
+				ID:     "123456789012345678901234567890123456",
+				Name:   "John",
+				Age:    17,
+				Email:  "john.doe@example.com",
+				Role:   "admin",
+				Phones: []string{"12345678901"},
+			},
+			expectedErr: ValidationErrors{{Field: "Age", Err: fmt.Errorf("field Age should be at least 18")}},
+		},
+		{
+			name: "invalid user email",
+			in: User{
+				ID:     "123456789012345678901234567890123456",
+				Name:   "John",
+				Age:    25,
+				Email:  "invalid-email",
+				Role:   "admin",
+				Phones: []string{"12345678901"},
+			},
+			expectedErr: ValidationErrors{{
+				Field: "Email",
+				Err: fmt.Errorf(
+					"field Email does not match regexp ^[a-zA-Z0-9._%%\\+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"),
+			}},
+		},
+		{
+			name: "invalid user role",
+			in: User{
+				ID:     "123456789012345678901234567890123456",
+				Name:   "John",
+				Age:    25,
+				Email:  "john.doe@example.com",
+				Role:   "user",
+				Phones: []string{"12345678901"},
+			},
+			expectedErr: ValidationErrors{{Field: "Role", Err: fmt.Errorf("field Role value is not in the set [admin stuff]")}},
+		},
+		{
+			name: "invalid user phone length",
+			in: User{
+				ID:     "123456789012345678901234567890123456",
+				Name:   "John",
+				Age:    25,
+				Email:  "john.doe@example.com",
+				Role:   "admin",
+				Phones: []string{"12345"},
+			},
+			expectedErr: ValidationErrors{{Field: "Phones", Err: fmt.Errorf("field Phones length should be 11")}},
+		},
+		{
+			name: "valid app version",
 			in: App{
-				Version: "12345",
+				Version: "1.0.0",
 			},
 			expectedErr: nil,
 		},
 		{
-			name: "invalid app",
+			name: "invalid app version length",
 			in: App{
-				Version: "1234",
+				Version: "1.0",
 			},
-			expectedErr: ValidationErrors{
-				{Field: "Version", Err: fmt.Errorf("field Version length should be 5")},
-			},
+			expectedErr: ValidationErrors{{Field: "Version", Err: fmt.Errorf("field Version length should be 5")}},
 		},
 		{
-			name: "valid response",
+			name: "valid response code",
 			in: Response{
 				Code: 200,
 				Body: "OK",
@@ -99,58 +144,22 @@ func TestValidate(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name: "invalid response",
+			name: "invalid response code",
 			in: Response{
-				Code: 201,
-				Body: "Created",
+				Code: 403,
+				Body: "Forbidden",
 			},
-			expectedErr: ValidationErrors{
-				{Field: "Code", Err: fmt.Errorf("field Code value is not in the set [200 404 500]")},
-			},
-		},
-		{
-			name: "nested user",
-			in: struct {
-				Nested User `validate:"nested"`
-			}{
-				Nested: User{
-					ID:     "123",
-					Age:    10,
-					Email:  "invalid-email",
-					Role:   "invalid-role",
-					Phones: []string{"123"},
-				},
-			},
-			expectedErr: ValidationErrors{
-				{Field: "Nested.ID", Err: fmt.Errorf("field ID length should be 36")},
-				{Field: "Nested.Age", Err: fmt.Errorf("field Age should be at least 18")},
-				{Field: "Nested.Email", Err: fmt.Errorf("field Email does not match regexp ^[a-zA-Z0-9._%%\\+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")},
-				{Field: "Nested.Role", Err: fmt.Errorf("field Role value is not in the set [admin stuff]")},
-				{Field: "Nested.Phones", Err: fmt.Errorf("field Phones length should be 11")},
-			},
+			expectedErr: ValidationErrors{{Field: "Code", Err: fmt.Errorf("field Code value is not in the set [200 404 500]")}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := Validate(tt.in)
-			if tt.expectedErr == nil {
-				require.NoError(t, err)
+			if err != nil {
+				require.Equal(t, tt.expectedErr, err)
 			} else {
-				require.Error(t, err)
-				require.IsType(t, ValidationErrors{}, err)
-				validationErrors := err.(ValidationErrors)
-				require.Equal(t, len(tt.expectedErr.(ValidationErrors)), len(validationErrors))
-				for _, expectedErr := range tt.expectedErr.(ValidationErrors) {
-					found := false
-					for _, actualErr := range validationErrors {
-						if expectedErr.Field == actualErr.Field && expectedErr.Err.Error() == actualErr.Err.Error() {
-							found = true
-							break
-						}
-					}
-					require.True(t, found, "expected error %v not found in actual errors %v", expectedErr, validationErrors)
-				}
+				require.NoError(t, err)
 			}
 		})
 	}

@@ -14,6 +14,14 @@ type ValidationError struct {
 	Err   error
 }
 
+type InternalError struct {
+	Msg string
+}
+
+func (e *InternalError) Error() string {
+	return e.Msg
+}
+
 type ValidationErrors []ValidationError
 
 func (v ValidationErrors) Error() string {
@@ -27,7 +35,7 @@ func (v ValidationErrors) Error() string {
 func Validate(v interface{}) error {
 	val := reflect.ValueOf(v)
 	if val.Kind() != reflect.Struct {
-		return errors.New("input is not a struct")
+		return &InternalError{Msg: "input is not a struct"}
 	}
 
 	var validationErrors ValidationErrors
@@ -60,6 +68,11 @@ func Validate(v interface{}) error {
 		rules := strings.Split(tag, "|")
 		for _, rule := range rules {
 			if err := applyRule(field.Name, fieldValue, rule); err != nil {
+				// Check if the error is an InternalError
+				var internalErr *InternalError
+				if errors.As(err, &internalErr) {
+					return internalErr
+				}
 				validationErrors = append(validationErrors, ValidationError{Field: field.Name, Err: err})
 			}
 		}
@@ -75,7 +88,7 @@ func Validate(v interface{}) error {
 func applyRule(fieldName string, fieldValue reflect.Value, rule string) error {
 	ruleParts := strings.Split(rule, ":")
 	if len(ruleParts) != 2 {
-		return fmt.Errorf("invalid rule format: %s", rule)
+		return &InternalError{Msg: fmt.Sprintf("invalid rule format: %s", rule)}
 	}
 	ruleName, ruleValue := ruleParts[0], ruleParts[1]
 
@@ -97,9 +110,9 @@ func applyRule(fieldName string, fieldValue reflect.Value, rule string) error {
 	case reflect.Invalid, reflect.Complex64, reflect.Complex128, reflect.Array, reflect.Chan,
 		reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Struct,
 		reflect.UnsafePointer:
-		return fmt.Errorf("unsupported field type: %s", fieldValue.Kind())
+		return &InternalError{Msg: fmt.Sprintf("unsupported field type: %s", fieldValue.Kind())}
 	default:
-		return fmt.Errorf("unsupported field type: %s", fieldValue.Kind())
+		return &InternalError{Msg: fmt.Sprintf("unsupported field type: %s", fieldValue.Kind())}
 	}
 }
 
@@ -112,17 +125,17 @@ func validateStringOrBool(fieldName string, value reflect.Value, ruleName, ruleV
 	case "in":
 		return validateInStringOrBool(fieldName, value, ruleValue)
 	default:
-		return fmt.Errorf("unknown validation rule: %s", ruleName)
+		return &InternalError{Msg: fmt.Sprintf("unknown validation rule: %s", ruleName)}
 	}
 }
 
 func validateLength(fieldName string, value reflect.Value, ruleValue string) error {
 	if value.Kind() != reflect.String {
-		return fmt.Errorf("len validation is only applicable to string fields")
+		return &InternalError{Msg: "len validation is only applicable to string fields"}
 	}
 	expectedLen, err := strconv.Atoi(ruleValue)
 	if err != nil {
-		return fmt.Errorf("invalid length value for field %s: %s", fieldName, ruleValue)
+		return &InternalError{Msg: fmt.Sprintf("invalid length value for field %s: %s", fieldName, ruleValue)}
 	}
 	if len(value.String()) != expectedLen {
 		return fmt.Errorf("field %s length should be %d", fieldName, expectedLen)
@@ -132,11 +145,11 @@ func validateLength(fieldName string, value reflect.Value, ruleValue string) err
 
 func validateRegexp(fieldName string, value reflect.Value, ruleValue string) error {
 	if value.Kind() != reflect.String {
-		return fmt.Errorf("regexp validation is only applicable to string fields")
+		return &InternalError{Msg: "regexp validation is only applicable to string fields"}
 	}
 	re, err := regexp.Compile(ruleValue)
 	if err != nil {
-		return fmt.Errorf("invalid regexp value for field %s: %s", fieldName, ruleValue)
+		return &InternalError{Msg: fmt.Sprintf("invalid regexp value for field %s: %s", fieldName, ruleValue)}
 	}
 	if !re.MatchString(value.String()) {
 		return fmt.Errorf("field %s does not match regexp %s", fieldName, ruleValue)

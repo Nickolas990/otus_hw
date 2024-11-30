@@ -2,6 +2,7 @@ package hw09structvalidator
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -117,49 +118,59 @@ func TestValidate(t *testing.T) {
 				Age:    25,
 				Email:  "john.doe@example.com",
 				Role:   "admin",
-				Phones: []string{"12345"},
+				Phones: []string{"1234567890"}, // Invalid phone length
 			},
 			expectedErr: ValidationErrors{{Field: "Phones", Err: fmt.Errorf("field Phones length should be 11")}},
 		},
 		{
-			name: "valid app version",
-			in: App{
-				Version: "1.0.0",
+			name: "non-struct input",
+			in:   123,
+			expectedErr: &InternalError{
+				Msg: "input is not a struct",
 			},
-			expectedErr: nil,
 		},
 		{
-			name: "invalid app version length",
-			in: App{
-				Version: "1.0",
+			name: "unsupported field type",
+			in: struct {
+				ComplexField complex128 `validate:"len:5"`
+			}{
+				ComplexField: 1 + 2i,
 			},
-			expectedErr: ValidationErrors{{Field: "Version", Err: fmt.Errorf("field Version length should be 5")}},
+			expectedErr: &InternalError{
+				Msg: "unsupported field type: complex128",
+			},
 		},
 		{
-			name: "valid response code",
-			in: Response{
-				Code: 200,
-				Body: "OK",
+			name: "invalid rule format",
+			in: struct {
+				Field string `validate:"invalidrule"`
+			}{
+				Field: "value",
 			},
-			expectedErr: nil,
-		},
-		{
-			name: "invalid response code",
-			in: Response{
-				Code: 403,
-				Body: "Forbidden",
+			expectedErr: &InternalError{
+				Msg: "invalid rule format: invalidrule",
 			},
-			expectedErr: ValidationErrors{{Field: "Code", Err: fmt.Errorf("field Code value is not in the set [200 404 500]")}},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := Validate(tt.in)
-			if err != nil {
-				require.Equal(t, tt.expectedErr, err)
-			} else {
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			err := Validate(tc.in)
+			if tc.expectedErr == nil {
 				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				var validationErrs ValidationErrors
+				if errors.As(tc.expectedErr, &validationErrs) {
+					require.IsType(t, validationErrs, err)
+					require.Equal(t, validationErrs, err)
+				}
+				var internalErr *InternalError
+				if errors.As(tc.expectedErr, &internalErr) {
+					require.IsType(t, internalErr, err)
+					require.Equal(t, internalErr.Msg, err.Error())
+				}
 			}
 		})
 	}

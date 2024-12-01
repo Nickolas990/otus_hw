@@ -1,7 +1,8 @@
 package main
 
 import (
-	"bufio"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"time"
@@ -47,21 +48,26 @@ func (c *telnetClient) Close() error {
 }
 
 func (c *telnetClient) Send() error {
-	scanner := bufio.NewScanner(c.in)
-	for scanner.Scan() {
-		if _, err := c.conn.Write(append(scanner.Bytes(), '\n')); err != nil {
-			return err
-		}
-	}
-	return scanner.Err()
+	_, err := io.Copy(c.conn, c.in)
+	return err
 }
 
 func (c *telnetClient) Receive() error {
-	_, err := io.Copy(c.out, c.conn)
-	if err != nil {
-		return err
+	buffer := make([]byte, 1024)
+	for {
+		n, err := c.conn.Read(buffer)
+		if n > 0 {
+			if _, writeErr := c.out.Write(buffer[:n]); writeErr != nil {
+				return fmt.Errorf("failed to write data to output: %w", writeErr)
+			}
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return fmt.Errorf("failed to receive data: %w", err)
+		}
 	}
-	return nil
 }
 
 // Place your code here.

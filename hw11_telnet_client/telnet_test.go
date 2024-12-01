@@ -94,7 +94,7 @@ func TestTelnetClientAdditionalScenarios(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	//t.Run("large data transfer", func(t *testing.T) {
+	// t.Run("large data transfer", func(t *testing.T) {
 	//	l, err := net.Listen("tcp", "127.0.0.1:")
 	//	require.NoError(t, err)
 	//	defer l.Close()

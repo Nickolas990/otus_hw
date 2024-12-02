@@ -34,10 +34,29 @@ func (v ValidationErrors) Error() string {
 
 func Validate(v interface{}) error {
 	val := reflect.ValueOf(v)
-	if val.Kind() != reflect.Struct {
-		return &InternalError{Msg: "input is not a struct"}
+	switch val.Kind() { //nolint:exhaustive
+	case reflect.Struct:
+		return validateStruct(val)
+	case reflect.Slice:
+		var validationErrors ValidationErrors
+		for i := 0; i < val.Len(); i++ {
+			if err := Validate(val.Index(i).Interface()); err != nil {
+				var nestedErrors ValidationErrors
+				if errors.As(err, &nestedErrors) {
+					validationErrors = append(validationErrors, nestedErrors...)
+				}
+			}
+		}
+		if len(validationErrors) > 0 {
+			return validationErrors
+		}
+		return nil
+	default:
+		return &InternalError{Msg: "input is not a struct or slice"}
 	}
+}
 
+func validateStruct(val reflect.Value) error {
 	var validationErrors ValidationErrors
 
 	for i := 0; i < val.NumField(); i++ {

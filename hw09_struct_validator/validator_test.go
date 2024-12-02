@@ -126,7 +126,7 @@ func TestValidate(t *testing.T) {
 			name: "non-struct input",
 			in:   123,
 			expectedErr: &InternalError{
-				Msg: "input is not a struct",
+				Msg: "input is not a struct or slice",
 			},
 		},
 		{

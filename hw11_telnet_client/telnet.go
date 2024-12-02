@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -62,7 +61,8 @@ func (c *telnetClient) Receive() error {
 			}
 		}
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if err == io.EOF {
+				fmt.Println("EOF encountered in Receive")
 				return nil
 			}
 			return fmt.Errorf("failed to receive data: %w", err)

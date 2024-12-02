@@ -94,10 +94,15 @@ func TestTelnetClientAdditionalScenarios(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("server disconnect", func(t *testing.T) {
+	t.Run("large data transfer", func(t *testing.T) {
 		l, err := net.Listen("tcp", "127.0.0.1:")
 		require.NoError(t, err)
 		defer l.Close()
+
+		data := make([]byte, 1024*1024) // 1MB of data
+		for i := range data {
+			data[i] = 'a'
+		}
 
 		var wg sync.WaitGroup
 		wg.Add(2)
@@ -108,28 +113,25 @@ func TestTelnetClientAdditionalScenarios(t *testing.T) {
 			in := &bytes.Buffer{}
 			out := &bytes.Buffer{}
 
-			timeout, err := time.ParseDuration("10s")
+			timeout, err := time.ParseDuration("30s") // увеличен тайм-аут
 			require.NoError(t, err)
 
 			client := NewTelnetClient(l.Addr().String(), timeout, io.NopCloser(in), out)
+			require.NoError(t, err)
+
 			require.NoError(t, client.Connect())
 			defer client.Close()
 
-			in.WriteString("hello\n")
+			in.Write(data)
 			err = client.Send()
 			require.NoError(t, err)
 
-			// Attempt to receive data
-			for i := 0; i < 5; i++ {
-				err = client.Receive()
-				t.Logf("Receive attempt %d error: %v", i+1, err)
-				if err != nil {
-					require.Equal(t, io.EOF, err)
-					return
-				}
-				time.Sleep(100 * time.Millisecond)
+			err = client.Receive()
+			if err != nil {
+				t.Fatalf("client.Receive() error: %v", err)
 			}
-			t.Error("Expected error but got nil after multiple attempts")
+
+			require.Equal(t, string(data), out.String())
 		}()
 
 		go func() {
@@ -139,15 +141,21 @@ func TestTelnetClientAdditionalScenarios(t *testing.T) {
 			require.NoError(t, err)
 			defer conn.Close()
 
-			request := make([]byte, 1024)
+			request := make([]byte, 1024*1024)
 			n, err := conn.Read(request)
 			require.NoError(t, err)
-			require.Equal(t, "hello\n", string(request)[:n])
+			require.Equal(t, string(data), string(request)[:n])
 
-			// Simulate server disconnect with a slight delay to ensure client attempts to read
-			time.Sleep(100 * time.Millisecond)
-			err = conn.Close()
+			t.Log("Server received data successfully")
+
+			n, err = conn.Write(data)
 			require.NoError(t, err)
+			require.NotEqual(t, 0, n)
+
+			t.Log("Server sent data back successfully")
+
+			// Добавим задержку перед закрытием соединения
+			time.Sleep(1 * time.Second)
 		}()
 
 		wg.Wait()

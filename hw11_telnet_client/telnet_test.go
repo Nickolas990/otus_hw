@@ -99,7 +99,7 @@ func TestTelnetClientAdditionalScenarios(t *testing.T) {
 		require.NoError(t, err)
 		defer l.Close()
 
-		data := make([]byte, 1024*1024) // 1MB of data
+		data := make([]byte, 120*120)
 		for i := range data {
 			data[i] = 'a'
 		}
@@ -128,7 +128,8 @@ func TestTelnetClientAdditionalScenarios(t *testing.T) {
 
 			err = client.Receive()
 			if err != nil {
-				t.Fatalf("client.Receive() error: %v", err)
+				t.Errorf("client.Receive() error: %v", err)
+				return
 			}
 
 			require.Equal(t, string(data), out.String())

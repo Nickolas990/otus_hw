@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -28,7 +29,7 @@ func main() {
 		for {
 			err := client.Receive()
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					fmt.Println("Connection closed by server")
 					return
 				}
@@ -39,6 +40,7 @@ func main() {
 
 	err = client.Send()
 	if err != nil {
-		log.Fatalf("Send error: %v", err)
+		log.Printf("Send error: %v", err)
+		return
 	}
 }

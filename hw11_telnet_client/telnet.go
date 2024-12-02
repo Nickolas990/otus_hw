@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -61,7 +62,7 @@ func (c *telnetClient) Receive() error {
 			}
 		}
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				fmt.Println("EOF encountered in Receive")
 				return nil
 			}

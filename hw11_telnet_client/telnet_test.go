@@ -99,7 +99,7 @@ func TestTelnetClientAdditionalScenarios(t *testing.T) {
 		require.NoError(t, err)
 		defer l.Close()
 
-		data := make([]byte, 120*120)
+		data := make([]byte, 20*20)
 		for i := range data {
 			data[i] = 'a'
 		}

@@ -1,46 +1,77 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
+	"os/signal"
 	"time"
 )
 
 func main() {
-	// Пример использования telnet клиента
-	if len(os.Args) < 2 {
-		fmt.Printf("Usage: %s <address>\n", os.Args[0])
+	var timeout time.Duration
+	flag.DurationVar(&timeout, "timeout", 10*time.Second, "connection timeout")
+	flag.Parse()
+	if flag.NArg() < 2 {
+		fmt.Fprintln(os.Stderr, "Usage: go-telnet --timeout=10s host port")
 		os.Exit(1)
 	}
 
-	address := os.Args[1]
-	client := NewTelnetClient(address, 10*time.Second, os.Stdin, os.Stdout)
+	host := flag.Arg(0)
+	port := flag.Arg(1)
+	address := net.JoinHostPort(host, port)
 
-	err := client.Connect()
-	if err != nil {
+	client := NewTelnetClient(address, timeout, os.Stdin, os.Stdout)
+
+	if err := client.Connect(); err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
 	defer client.Close()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
 	go func() {
-		for {
-			err := client.Receive()
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					fmt.Println("Connection closed by server")
-					return
-				}
-				log.Fatalf("Receive error: %v", err)
-			}
-		}
+		<-sigCh
+		cancel()
+		client.Close()
+		fmt.Fprintln(os.Stderr, "...EOF")
+		os.Exit(0)
 	}()
 
-	err = client.Send()
-	if err != nil {
-		log.Printf("Send error: %v", err)
-		return
+	go func() {
+		if err := client.Send(); err != nil {
+			fmt.Fprintln(os.Stderr, "...Send error:", err)
+			cancel()
+			client.Close()
+			os.Exit(1)
+		}
+		fmt.Fprintln(os.Stderr, "...EOF")
+		cancel()
+		client.Close()
+		os.Exit(0)
+	}()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- client.Receive()
+	}()
+
+	select {
+	case <-ctx.Done():
+		fmt.Fprintln(os.Stderr, "...Operation canceled")
+	case err := <-done:
+		if err != nil && errors.Is(err, io.EOF) {
+			fmt.Fprintln(os.Stderr, "...Receive error:", err)
+		} else {
+			fmt.Fprintln(os.Stderr, "...Connection closed by server")
+		}
 	}
 }

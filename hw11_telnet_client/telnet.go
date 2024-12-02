@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -16,15 +15,20 @@ type TelnetClient interface {
 }
 
 type telnetClient struct {
+	conn    net.Conn
 	address string
 	timeout time.Duration
-	conn    net.Conn
-	in      io.ReadCloser
+	in      io.Reader
 	out     io.Writer
 }
 
-func NewTelnetClient(address string, timeout time.Duration, in io.ReadCloser, out io.Writer) TelnetClient {
-	return &telnetClient{address: address, timeout: timeout, in: in, out: out}
+func NewTelnetClient(address string, timeout time.Duration, in io.Reader, out io.Writer) *telnetClient {
+	return &telnetClient{
+		address: address,
+		timeout: timeout,
+		in:      in,
+		out:     out,
+	}
 }
 
 func (c *telnetClient) Connect() error {
@@ -33,10 +37,6 @@ func (c *telnetClient) Connect() error {
 		return err
 	}
 	c.conn = conn
-	// _, err = fmt.Fprintln(c.out, "...Connected to", c.address)
-	// if err != nil {
-	//	return err
-	//}
 	return nil
 }
 
@@ -48,8 +48,21 @@ func (c *telnetClient) Close() error {
 }
 
 func (c *telnetClient) Send() error {
-	_, err := io.Copy(c.conn, c.in)
-	return err
+	buffer := make([]byte, 1024)
+	for {
+		n, err := c.in.Read(buffer)
+		if n > 0 {
+			if _, err := c.conn.Write(buffer[:n]); err != nil {
+				return err
+			}
+		}
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
 }
 
 func (c *telnetClient) Receive() error {
@@ -62,7 +75,7 @@ func (c *telnetClient) Receive() error {
 			}
 		}
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if err == io.EOF {
 				fmt.Println("EOF encountered in Receive")
 				return nil
 			}
@@ -70,6 +83,3 @@ func (c *telnetClient) Receive() error {
 		}
 	}
 }
-
-// Place your code here.
-// P.S. Author's solution takes no more than 50 lines.

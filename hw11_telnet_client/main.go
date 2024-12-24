@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -17,6 +15,7 @@ func main() {
 	var timeout time.Duration
 	flag.DurationVar(&timeout, "timeout", 10*time.Second, "connection timeout")
 	flag.Parse()
+
 	if flag.NArg() < 2 {
 		fmt.Fprintln(os.Stderr, "Usage: go-telnet --timeout=10s host port")
 		os.Exit(1)
@@ -31,47 +30,40 @@ func main() {
 	if err := client.Connect(); err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt)
-	go func() {
-		<-sigCh
-		cancel()
-		client.Close()
-		fmt.Fprintln(os.Stderr, "...EOF")
-		os.Exit(0)
-	}()
-
-	go func() {
-		if err := client.Send(); err != nil {
-			fmt.Fprintln(os.Stderr, "...Send error:", err)
-			cancel()
-			client.Close()
-			os.Exit(1)
+	defer func(client TelnetClient) {
+		err := client.Close()
+		if err != nil {
+			return
 		}
-		fmt.Fprintln(os.Stderr, "...EOF")
-		cancel()
-		client.Close()
-		os.Exit(0)
+	}(client)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	go func() {
+		<-ctx.Done()
+		err := client.Close()
+		if err != nil {
+			return
+		}
 	}()
 
-	done := make(chan error, 1)
+	errCh := make(chan error, 1)
+
 	go func() {
-		done <- client.Receive()
+		errCh <- client.Send()
+	}()
+
+	go func() {
+		errCh <- client.Receive()
 	}()
 
 	select {
 	case <-ctx.Done():
 		fmt.Fprintln(os.Stderr, "...Operation canceled")
-	case err := <-done:
-		if err != nil && errors.Is(err, io.EOF) {
-			fmt.Fprintln(os.Stderr, "...Receive error:", err)
-		} else {
-			fmt.Fprintln(os.Stderr, "...Connection closed by server")
+	case err := <-errCh:
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "...Connection error: %v\n", err)
 		}
 	}
 }

@@ -3,26 +3,27 @@ package internalhttp
 import (
 	"context"
 	"errors"
-	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/interfaces"
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/app"
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
 	"log"
 	"net/http"
 	"time"
 )
 
 type Server struct {
-	// TODO
 	server *http.Server
-	log    interfaces.Logger
-	app    interfaces.Application
+	log    logger.Logger
+	app    app.Application
 }
 
-func NewServer(logger interfaces.Logger, app interfaces.Application, address string) *Server {
+func NewServer(logger logger.Logger, app app.Application, address string) *Server {
 	return &Server{
 		log: logger,
 		app: app,
 		server: &http.Server{
-			Addr:    address,
-			Handler: nil,
+			Addr:              address,
+			Handler:           nil,
+			ReadHeaderTimeout: 5 * time.Second,
 		},
 	}
 }
@@ -63,18 +64,15 @@ func (s *Server) newRouter() http.Handler {
 
 func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
 	// Обработка запроса к эндпоинту /hello
+	_ = r
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Hello, World!"))
-
 }
 
 func (s *Server) Stop(ctx context.Context) error {
-
 	if err := s.server.Shutdown(ctx); err != nil {
 		return err
 	}
 	log.Println("Server stopped")
 	return nil
 }
-
-// TODO

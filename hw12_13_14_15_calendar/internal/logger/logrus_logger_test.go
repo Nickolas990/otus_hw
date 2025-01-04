@@ -3,7 +3,6 @@ package logger
 import (
 	"bytes"
 	"errors"
-	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger/logruslogger"
 	"os"
 	"os/exec"
 	"strings"
@@ -15,8 +14,8 @@ func TestLogger_Levels(t *testing.T) {
 	var buf bytes.Buffer
 
 	// Инициализируем логгер с наивысшим уровнем логирования
-	log := logruslogger.New("debug") // Предполагается, что New возвращает *LogrusLogger
-	log.(*logruslogger.LogrusLogger).Logger.SetOutput(&buf)
+	log := New("debug") // Предполагается, что New возвращает *LogrusLogger
+	log.(*LogrusLogger).Logger.SetOutput(&buf)
 
 	// Словарь уровней логирования и сообщений для тестирования
 	tests := []struct {
@@ -39,10 +38,10 @@ func TestLogger_Levels(t *testing.T) {
 	}
 }
 
-// Так как Fatal вызывает os.Exit(), мы проводим тест отдельно, через запуск отдельного процесса
+// Так как Fatal вызывает os.Exit(), мы проводим тест отдельно, через запуск отдельного процесса.
 func TestLogFatal(t *testing.T) {
 	if os.Getenv("BE_CRASHER") == "1" {
-		log := logruslogger.New("debug") // Создайте ваш логгер
+		log := New("debug") // Создайте ваш логгер
 		log.Fatal("fatal message")
 		return
 	}
@@ -58,8 +57,8 @@ func TestLogFatal(t *testing.T) {
 
 func TestLogger_FormattedLevels(t *testing.T) {
 	var buf bytes.Buffer
-	log := logruslogger.New("debug")
-	log.(*logruslogger.LogrusLogger).Logger.SetOutput(&buf)
+	log := New("debug")
+	log.(*LogrusLogger).Logger.SetOutput(&buf)
 
 	tests := []struct {
 		logFunc     func(format string, args ...interface{})
@@ -83,10 +82,10 @@ func TestLogger_FormattedLevels(t *testing.T) {
 	}
 }
 
-// Тестирование Fatalf следует проводить отдельно, так как он вызывает os.Exit(), подобно тесту для Fatal
+// Тестирование Fatalf следует проводить отдельно, так как он вызывает os.Exit(), подобно тесту для Fatal.
 func TestLogFatalf(t *testing.T) {
 	if os.Getenv("BE_CRASHER_F") == "1" {
-		log := logruslogger.New("debug")
+		log := New("debug")
 		log.Fatalf("fatal formatted message %d", 1)
 		return
 	}

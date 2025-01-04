@@ -8,6 +8,6 @@ type Event struct {
 	StartTime        time.Time
 	EndTime          time.Time
 	Description      string
-	UserId           string
+	UserID           string
 	NotificationTime time.Time
 }

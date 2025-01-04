@@ -4,30 +4,30 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/business_errors"
+	"time"
+
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/config"
-	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/interfaces"
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/errs"
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage"
 	"github.com/google/uuid"
-	_ "github.com/lib/pq" // Импортируем драйвер PostgreSQL
+	_ "github.com/lib/pq" // import Postgres driver
 	"github.com/pressly/goose"
-	"github.com/sirupsen/logrus"
-	"time"
 )
 
 type PostgresStorage struct {
 	db  *sql.DB
-	log interfaces.Logger
+	log logger.Logger
 }
 
-const dbParamsKey = "dbParams"
-
 func (s *PostgresStorage) Get(id string) (storage.Event, error) {
-	const query = `SELECT id, title, description, start_time, end_time, user_id, notification_time FROM events WHERE id = $1`
+	const query = `SELECT id, title, description, start_time, end_time, user_id, notification_time 
+FROM events WHERE id = $1`
 	var event storage.Event
 
 	row := s.db.QueryRow(query, id)
-	err := row.Scan(&event.ID, &event.Title, &event.Description, &event.StartTime, &event.EndTime, &event.UserId, &event.NotificationTime)
+	err := row.Scan(&event.ID, &event.Title, &event.Description, &event.StartTime,
+		&event.EndTime, &event.UserID, &event.NotificationTime)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// Если событие не найдено, возвращаем ошибку
@@ -40,41 +40,53 @@ func (s *PostgresStorage) Get(id string) (storage.Event, error) {
 	return event, nil
 }
 
-func (s *PostgresStorage) Add(event storage.Event) error {
-
+func (s *PostgresStorage) Add(event storage.Event) (storage.Event, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
-		return err
+		return storage.Event{}, err
 	}
 
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
-			logrus.Errorf("failed to rollback transaction: %s", err)
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
 		}
-	}(tx)
+	}()
 
 	event.ID = uuid.New().String()
 
 	eventSlice, err := s.EventListInInterval(event.StartTime, event.EndTime)
+	if err != nil {
+		return storage.Event{}, fmt.Errorf("failed to check event conflict: %w", err)
+	}
+
 	if len(eventSlice) != 0 {
-		return business_errors.ErrConflict{
+		return storage.Event{}, errs.ErrConflict{
 			Code:    1,
-			Message: "event conflict",
+			Message: "event already exists",
 			Events:  eventSlice,
 		}
 	}
 
 	const query = `
     INSERT INTO events (id, title, start_time, end_time) 
-    VALUES ($1, $2, $3, $4)`
+    VALUES ($1, $2, $3, $4)
+    RETURNING id, title, start_time, end_time`
 
-	_, err = tx.Exec(query, event.ID, event.Title, event.StartTime, event.EndTime)
+	// Assuming `event` already has `Title`, `StartTime`, and `EndTime` populated.
+	err = tx.QueryRow(query, event.ID, event.Title, event.StartTime, event.EndTime).
+		Scan(&event.ID, &event.Title, &event.StartTime, &event.EndTime)
 	if err != nil {
-		return fmt.Errorf("failed to add event: %w", err)
+		return storage.Event{}, fmt.Errorf("failed to add event: %w", err)
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return storage.Event{}, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return event, nil
 }
 
 func (s *PostgresStorage) Delete(id string) error {
@@ -86,19 +98,28 @@ func (s *PostgresStorage) Delete(id string) error {
 
 	// Обязательное закрытие транзакции в конце выполнения метода
 	defer func() {
+		var commitErr error
+		// Проверяем, произошла ли паника.
 		if p := recover(); p != nil {
-			// Откат транзакции в случае паники
-			tx.Rollback()
-			panic(p) // Перевыброс паники
-		} else if err != nil {
-			// Откат транзакции в случае ошибки
-			tx.Rollback()
-		} else {
-			// Попытка фиксации транзакции
-			err = tx.Commit()
-			if err != nil {
-				err = fmt.Errorf("failed to commit transaction: %w", err)
+			// Откатываем транзакцию в случае паники и перевыбрасываем панику.
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				s.log.Errorf("failed to rollback transaction after panic: %s", rollbackErr)
 			}
+			panic(p)
+		} else if err != nil {
+			// Откатываем транзакцию в случае ошибки.
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				s.log.Errorf("failed to rollback transaction after error: %s", rollbackErr)
+			}
+		} else {
+			// Пытаемся зафиксировать транзакцию, если не было ошибок.
+			commitErr = tx.Commit()
+		}
+
+		// Проверяем ошибку фиксации транзакции отдельно,
+		// так как это позволяет нам избежать переопределения переменной err внутри блока else.
+		if commitErr != nil {
+			s.log.Errorf("failed to commit transaction: %s", commitErr)
 		}
 	}()
 
@@ -149,7 +170,9 @@ func (s *PostgresStorage) Modify(id string, event storage.Event) (storage.Event,
 	for _, existingEvent := range events {
 		if existingEvent.ID != id {
 			// Найден конфликтующий эвент, который не является модифицируемым эвентом
-			return storage.Event{}, fmt.Errorf("event %s in time %s conflicts with an existing event", existingEvent.Title, existingEvent.StartTime)
+			return storage.Event{}, fmt.Errorf(
+				"event %s in time %s conflicts with an existing event",
+				existingEvent.Title, existingEvent.StartTime)
 		}
 	}
 
@@ -159,7 +182,9 @@ UPDATE events
 SET title = $2, description = $3, start_time = $4, end_time = $5, user_id = $6, notification_time = $7 
 WHERE id = $1
 `
-	if _, err := tx.Exec(updateQuery, id, event.Title, event.Description, event.StartTime, event.EndTime, event.UserId, event.NotificationTime); err != nil {
+	if _, err := tx.Exec(updateQuery,
+		id, event.Title, event.Description, event.StartTime,
+		event.EndTime, event.UserID, event.NotificationTime); err != nil {
 		return storage.Event{}, fmt.Errorf("failed to update event: %w", err)
 	}
 
@@ -219,7 +244,8 @@ WHERE start_time >= $1 AND start_time < $2`
 	var events []storage.Event
 	for rows.Next() {
 		var event storage.Event
-		if err := rows.Scan(&event.ID, &event.Title, &event.Description, &event.StartTime, &event.EndTime, &event.UserId, &event.NotificationTime); err != nil {
+		if err := rows.Scan(&event.ID, &event.Title, &event.Description,
+			&event.StartTime, &event.EndTime, &event.UserID, &event.NotificationTime); err != nil {
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
 		events = append(events, event)
@@ -255,7 +281,8 @@ WHERE (start_time >= $1 AND start_time <= $2) OR
 	var events []storage.Event
 	for rows.Next() {
 		var event storage.Event
-		if err := rows.Scan(&event.ID, &event.Title, &event.Description, &event.StartTime, &event.EndTime, &event.UserId, &event.NotificationTime); err != nil {
+		if err := rows.Scan(&event.ID, &event.Title, &event.Description, &event.StartTime,
+			&event.EndTime, &event.UserID, &event.NotificationTime); err != nil {
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
 		events = append(events, event)
@@ -286,7 +313,8 @@ WHERE (start_time >= $1 AND start_time <= $2) OR
 	var events []storage.Event
 	for rows.Next() {
 		var event storage.Event
-		if err := rows.Scan(&event.ID, &event.Title, &event.Description, &event.StartTime, &event.EndTime, &event.UserId, &event.NotificationTime); err != nil {
+		if err := rows.Scan(&event.ID, &event.Title, &event.Description, &event.StartTime,
+			&event.EndTime, &event.UserID, &event.NotificationTime); err != nil {
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
 		events = append(events, event)
@@ -300,19 +328,17 @@ WHERE (start_time >= $1 AND start_time <= $2) OR
 	return events, nil
 }
 
-func New(logger interfaces.Logger) *PostgresStorage {
+func New(logger logger.Logger) *PostgresStorage {
 	return &PostgresStorage{
 		log: logger,
 	}
 }
 
 func (s *PostgresStorage) Connect(ctx context.Context, cfg config.Config) error {
-
 	params := cfg.DBParams
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		params.Host, params.Port, params.Username, params.Password, params.Database)
 	db, err := sql.Open("postgres", dsn)
-
 	if err != nil {
 		return err
 	}

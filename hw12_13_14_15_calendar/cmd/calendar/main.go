@@ -3,9 +3,8 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/interfaces"
-	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger/logruslogger"
-	sqlstorage "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage/sql"
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
+	storage2 "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage"
 	"log"
 	"os"
 	"os/signal"
@@ -16,11 +15,14 @@ import (
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/config"
 	internalhttp "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/server/http"
 	memorystorage "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage/memory"
+	sqlstorage "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage/sql"
 	"github.com/spf13/viper"
 )
 
-var configFile string
-var storage interfaces.Storage
+var (
+	configFile string
+	storage    storage2.Storage
+)
 
 func init() {
 	flag.StringVar(&configFile, "config", "configs/sample_config.yml", "Path to configuration file")
@@ -41,14 +43,15 @@ func main() {
 	viper.SetConfigFile(configFile)
 
 	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("Error reading config file, %s", err)
+		log.Printf("Error reading config file, %s", err)
+		cancel()
 	}
 	var cfg config.Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		log.Fatalf("unable to decode into struct, %v", err)
 	}
 
-	logg := logruslogger.New(cfg.Logger.Level)
+	logg := logger.New(cfg.Logger.Level)
 	log.Printf("Loaded configuration: %+v\n", cfg)
 
 	if cfg.StorageType == "memory" {
@@ -61,7 +64,7 @@ func main() {
 			return
 		}
 
-		defer func(storage interfaces.Storage, ctx context.Context) {
+		defer func(storage storage2.Storage, ctx context.Context) {
 			err := storage.Close(ctx)
 			if err != nil {
 				logg.Error(err.Error())
@@ -90,6 +93,6 @@ func main() {
 	if err := server.Start(ctx); err != nil {
 		logg.Error("failed to start http server: " + err.Error())
 		cancel()
-		os.Exit(1) //nolint:gocritic
+		os.Exit(1)
 	}
 }

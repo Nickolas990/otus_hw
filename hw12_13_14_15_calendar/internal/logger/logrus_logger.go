@@ -1,7 +1,7 @@
-package logruslogger
+package logger
 
 import (
-	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/interfaces"
+	//nolint:depguard
 	"github.com/sirupsen/logrus"
 )
 
@@ -9,8 +9,8 @@ type LogrusLogger struct {
 	*logrus.Logger
 }
 
-func New(level string) interfaces.Logger {
-	var baseLogger = logrus.New()
+func New(level string) Logger {
+	baseLogger := logrus.New()
 	lvl, err := logrus.ParseLevel(level)
 	if err != nil {
 		baseLogger.Errorf("Error parsing log level: %v", err)

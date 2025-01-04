@@ -3,24 +3,34 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/interfaces"
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger/logruslogger"
+	sqlstorage "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage/sql"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/app"
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/logger"
-	internalhttp "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/server/http"
-	memorystorage "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/storage/memory"
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/app"
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/config"
+	internalhttp "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/server/http"
+	memorystorage "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage/memory"
+	"github.com/spf13/viper"
 )
 
 var configFile string
+var storage interfaces.Storage
 
 func init() {
-	flag.StringVar(&configFile, "config", "/etc/calendar/config.toml", "Path to configuration file")
+	flag.StringVar(&configFile, "config", "configs/sample_config.yml", "Path to configuration file")
 }
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	defer cancel()
+
 	flag.Parse()
 
 	if flag.Arg(0) == "version" {
@@ -28,17 +38,41 @@ func main() {
 		return
 	}
 
-	config := NewConfig()
-	logg := logger.New(config.Logger.Level)
+	viper.SetConfigFile(configFile)
 
-	storage := memorystorage.New()
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("Error reading config file, %s", err)
+	}
+	var cfg config.Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		log.Fatalf("unable to decode into struct, %v", err)
+	}
+
+	logg := logruslogger.New(cfg.Logger.Level)
+	log.Printf("Loaded configuration: %+v\n", cfg)
+
+	if cfg.StorageType == "memory" {
+		storage = memorystorage.New(logg)
+	} else if cfg.StorageType == "db" {
+		storage = sqlstorage.New(logg)
+		err := storage.Connect(ctx, cfg)
+		if err != nil {
+			logg.Error(err.Error())
+			return
+		}
+
+		defer func(storage interfaces.Storage, ctx context.Context) {
+			err := storage.Close(ctx)
+			if err != nil {
+				logg.Error(err.Error())
+			}
+		}(storage, ctx)
+	}
 	calendar := app.New(logg, storage)
 
-	server := internalhttp.NewServer(logg, calendar)
+	address := cfg.HTTPServer.Host + ":" + cfg.HTTPServer.Port
 
-	ctx, cancel := signal.NotifyContext(context.Background(),
-		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-	defer cancel()
+	server := internalhttp.NewServer(logg, calendar, address)
 
 	go func() {
 		<-ctx.Done()

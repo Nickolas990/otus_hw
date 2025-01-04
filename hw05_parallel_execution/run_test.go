@@ -17,7 +17,7 @@ import (
 func TestRun(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	t.Run("if were errors in first M tasks, than finished not more N+M tasks", func(t *testing.T) {
+	t.Run("if were business_errors in first M tasks, than finished not more N+M tasks", func(t *testing.T) {
 		tasksCount := 50
 		tasks := make([]Task, 0, tasksCount)
 
@@ -40,7 +40,7 @@ func TestRun(t *testing.T) {
 		require.LessOrEqual(t, runTasksCount, int32(workersCount+maxErrorsCount), "extra tasks were started")
 	})
 
-	t.Run("tasks without errors", func(t *testing.T) {
+	t.Run("tasks without business_errors", func(t *testing.T) {
 		tasksCount := 50
 		tasks := make([]Task, 0, tasksCount)
 
@@ -158,7 +158,7 @@ func TestRunCustom(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("errors limit is zero or negative", func(t *testing.T) {
+	t.Run("business_errors limit is zero or negative", func(t *testing.T) {
 		tasks := []Task{
 			func() error { return nil },
 			func() error { return errors.New("error") },

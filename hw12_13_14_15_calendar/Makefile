@@ -29,6 +29,6 @@ install-lint-deps:
 	(which golangci-lint > /dev/null) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.57.2
 
 lint: install-lint-deps
-	cd $(shell git rev-parse --show-toplevel)/hw12_13_14_15_calendar && golangci-lint run ./...
+	cd $(shell git rev-parse --show-toplevel)/hw12_13_14_15_calendar && golangci-lint run ./internal/... ./cmd/...
 
 .PHONY: build run build-img run-img version test lint

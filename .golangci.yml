@@ -10,8 +10,6 @@ linters-settings:
     statements: 80
 
 issues:
-  exclude-dirs:
-    - ^go/
   exclude-rules:
     - path: _test\.go
       linters:

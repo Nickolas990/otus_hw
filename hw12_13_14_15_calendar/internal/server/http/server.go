@@ -32,25 +32,20 @@ func NewServer(logger logger.Logger, app app.Application, address string) *Serve
 }
 
 func (s *Server) Start(ctx context.Context) error {
-	s.server.Handler = s.newRouter() // Предполагается, что у вас есть метод newRouter
+	s.server.Handler = s.newRouter()
 	log.Printf("Starting HTTP server on %s", s.server.Addr)
 
-	// Запуск сервера в отдельной горутине
 	go func() {
 		if err := s.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			// Логирование ошибки, кроме случая закрытия сервера
 			log.Printf("Error starting server: %v", err)
 		}
 	}()
 
-	// Ожидание сигнала на завершение из контекста
 	<-ctx.Done()
 
-	// Когда контекст отменяется (ctx.Done() закрывается), выполняется остановка сервера
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := s.server.Shutdown(shutdownCtx); err != nil {
-		// Логирование ошибки при остановке сервера
 		log.Printf("Error shutting down server: %v", err)
 		return err
 	}

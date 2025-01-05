@@ -1,7 +1,4 @@
 run:
-  skip-dirs:
-    - ^\.go
-    - ^pkg/mod
   tests: true
   build-tags:
     - bench
@@ -13,6 +10,9 @@ linters-settings:
     statements: 80
 
 issues:
+  exclude-dirs:
+    - ^\.go
+    - ^pkg/mod
   exclude-rules:
     - path: _test\.go
       linters:

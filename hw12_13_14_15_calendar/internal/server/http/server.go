@@ -2,30 +2,79 @@ package internalhttp
 
 import (
 	"context"
+	"errors"
+	"log"
+	"net/http"
+	"time"
+
+	//nolint:depguard
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/app"
+	//nolint:depguard
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
 )
 
-type Server struct { // TODO
+type Server struct {
+	server *http.Server
+	log    logger.Logger
+	app    app.Application
 }
 
-type Logger interface { // TODO
-}
-
-type Application interface { // TODO
-}
-
-func NewServer(logger Logger, app Application) *Server {
-	return &Server{}
+func NewServer(logger logger.Logger, app app.Application, address string) *Server {
+	return &Server{
+		log: logger,
+		app: app,
+		server: &http.Server{
+			Addr:              address,
+			Handler:           nil,
+			ReadHeaderTimeout: 5 * time.Second,
+		},
+	}
 }
 
 func (s *Server) Start(ctx context.Context) error {
-	// TODO
+	s.server.Handler = s.newRouter()
+	log.Printf("Starting HTTP server on %s", s.server.Addr)
+
+	go func() {
+		if err := s.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("Error starting server: %v", err)
+		}
+	}()
+
 	<-ctx.Done()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := s.server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Error shutting down server: %v", err)
+		return err
+	}
+
 	return nil
+}
+
+func (s *Server) newRouter() http.Handler {
+	mux := http.NewServeMux()
+	// Регистрация обработчиков
+	mux.Handle("/hello", loggingMiddleware(http.HandlerFunc(s.handleEvent)))
+	return mux
+}
+
+func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
+	// Обработка запроса к эндпоинту /hello
+	_ = r
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write([]byte("Hello, World!"))
+	if err != nil {
+		log.Printf("Error writing response: %v", err)
+		return
+	}
 }
 
 func (s *Server) Stop(ctx context.Context) error {
-	// TODO
+	if err := s.server.Shutdown(ctx); err != nil {
+		return err
+	}
+	log.Println("Server stopped")
 	return nil
 }
-
-// TODO

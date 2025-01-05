@@ -5,11 +5,11 @@ import (
 	"sync"
 )
 
-var ErrErrorsLimitExceeded = errors.New("errors limit exceeded")
+var ErrErrorsLimitExceeded = errors.New("errs limit exceeded")
 
 type Task func() error
 
-// Run starts tasks in n goroutines and stops its work when receiving m errors from tasks.
+// Run starts tasks in n goroutines and stops its work when receiving m errs from tasks.
 func Run(tasks []Task, n, m int) error {
 	if m <= 0 {
 		return ErrErrorsLimitExceeded

@@ -11,8 +11,7 @@ linters-settings:
 
 issues:
   exclude-dirs:
-    - ^\.go
-    - ^pkg/mod
+    - ^go/
   exclude-rules:
     - path: _test\.go
       linters:

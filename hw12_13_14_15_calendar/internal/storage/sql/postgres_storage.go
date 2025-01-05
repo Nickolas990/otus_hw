@@ -6,12 +6,19 @@ import (
 	"fmt"
 	"time"
 
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/config"
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/errs"
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage"
+	//nolint:depguard
 	"github.com/google/uuid"
+	//nolint:depguard
 	_ "github.com/lib/pq" // import Postgres driver
+	//nolint:depguard
 	"github.com/pressly/goose"
 )
 
@@ -48,10 +55,18 @@ func (s *PostgresStorage) Add(event storage.Event) (storage.Event, error) {
 
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			err := tx.Rollback()
+			if err != nil {
+				s.log.Errorf("failed to rollback transaction after panic: %s", err)
+				return
+			}
 			panic(p)
 		} else if err != nil {
-			tx.Rollback()
+			err := tx.Rollback()
+			if err != nil {
+				s.log.Errorf("failed to rollback transaction after error: %s", err)
+				return
+			}
 		}
 	}()
 
@@ -198,7 +213,12 @@ func (s *PostgresStorage) EventListForDate(date time.Time) ([]storage.Event, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to list events for date: %w", err)
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			s.log.Errorf("failed to close rows: %s", err)
+		}
+	}(rows)
 
 	var events []storage.Event
 	for rows.Next() {
@@ -218,7 +238,12 @@ func (s *PostgresStorage) EventListForWeek(date time.Time) ([]storage.Event, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
 	}
-	defer tx.Rollback() // Рекомендуется откатывать транзакцию, если она не будет зафиксирована
+	defer func(tx *sql.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			s.log.Errorf("failed to rollback transaction: %s", err)
+		}
+	}(tx) // Рекомендуется откатывать транзакцию, если она не будет зафиксирована
 
 	// Вычисление начала и конца недели
 	startOfWeek := date.Truncate(24 * time.Hour)            // Обрезать время суток
@@ -239,7 +264,12 @@ WHERE start_time >= $1 AND start_time < $2`
 	if err != nil {
 		return nil, fmt.Errorf("failed to list events for week: %w", err)
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			s.log.Errorf("failed to close rows: %s", err)
+		}
+	}(rows)
 
 	var events []storage.Event
 	for rows.Next() {
@@ -276,7 +306,12 @@ WHERE (start_time >= $1 AND start_time <= $2) OR
 	if err != nil {
 		return nil, fmt.Errorf("failed to list events for month: %w", err)
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			s.log.Errorf("failed to close rows: %s", err)
+		}
+	}(rows)
 
 	var events []storage.Event
 	for rows.Next() {
@@ -308,7 +343,12 @@ WHERE (start_time >= $1 AND start_time <= $2) OR
 	if err != nil {
 		return nil, fmt.Errorf("failed to list events in interval: %w", err)
 	}
-	defer rows.Close()
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			s.log.Errorf("failed to close rows: %s", err)
+		}
+	}(rows)
 
 	var events []storage.Event
 	for rows.Next() {
@@ -375,6 +415,7 @@ func (s *PostgresStorage) Connect(ctx context.Context, cfg config.Config) error 
 }
 
 func (s *PostgresStorage) Close(ctx context.Context) error {
+	_ = ctx
 	if s.db != nil {
 		err := s.db.Close()
 		if err != nil {

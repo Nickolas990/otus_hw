@@ -3,19 +3,26 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
-	storage2 "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage"
 	"log"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/app"
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/config"
+	//nolint:depguard
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
+	//nolint:depguard
 	internalhttp "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/server/http"
+	//nolint:depguard
+	storage2 "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage"
+	//nolint:depguard
 	memorystorage "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage/memory"
+	//nolint:depguard
 	sqlstorage "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage/sql"
+	//nolint:depguard
 	"github.com/spf13/viper"
 )
 
@@ -48,7 +55,8 @@ func main() {
 	}
 	var cfg config.Config
 	if err := viper.Unmarshal(&cfg); err != nil {
-		log.Fatalf("unable to decode into struct, %v", err)
+		log.Printf("unable to decode into struct, %v", err)
+		cancel()
 	}
 
 	logg := logger.New(cfg.Logger.Level)
@@ -93,6 +101,5 @@ func main() {
 	if err := server.Start(ctx); err != nil {
 		logg.Error("failed to start http server: " + err.Error())
 		cancel()
-		os.Exit(1)
 	}
 }

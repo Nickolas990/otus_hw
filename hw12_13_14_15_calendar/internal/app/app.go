@@ -4,12 +4,14 @@ import (
 	"context"
 	"time"
 
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage"
 )
 
 type Application interface {
-	CreateEvent(ctx context.Context, id, title string) error
+	CreateEvent(ctx context.Context, id, title string) (storage.Event, error)
 	DeleteEvent(ctx context.Context, id string) error
 	ModifyEvent(ctx context.Context, id, title string) (storage.Event, error)
 	EventListForDate(ctx context.Context, date time.Time) ([]storage.Event, error)
@@ -29,10 +31,10 @@ func New(logger logger.Logger, storage storage.Storage) *App {
 	}
 }
 
-func (a *App) CreateEvent(ctx context.Context, id, title string) error {
+func (a *App) CreateEvent(ctx context.Context, id, title string) (storage.Event, error) {
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		return storage.Event{}, ctx.Err()
 	default:
 		return a.storage.Add(storage.Event{ID: id, Title: title})
 	}
@@ -48,7 +50,12 @@ func (a *App) DeleteEvent(ctx context.Context, id string) error {
 }
 
 func (a *App) ModifyEvent(ctx context.Context, id, title string) (storage.Event, error) {
-	return a.storage.Modify(id, storage.Event{ID: id, Title: title})
+	select {
+	case <-ctx.Done():
+		return storage.Event{}, ctx.Err()
+	default:
+		return a.storage.Modify(id, storage.Event{ID: id, Title: title})
+	}
 }
 
 func (a *App) GetEvent(ctx context.Context, id string) (storage.Event, error) {

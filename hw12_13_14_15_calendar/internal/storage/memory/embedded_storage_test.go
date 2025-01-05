@@ -4,8 +4,11 @@ import (
 	"testing"
 	"time"
 
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage"
+	//nolint:depguard
 	"github.com/stretchr/testify/require"
 )
 

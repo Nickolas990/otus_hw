@@ -6,10 +6,15 @@ import (
 	"sync"
 	"time"
 
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/config"
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/errs"
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
+	//nolint:depguard
 	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/storage"
+	//nolint:depguard
 	"github.com/google/uuid"
 )
 
@@ -65,10 +70,13 @@ func (s *EmbeddedStorage) Get(id string) (storage.Event, error) {
 }
 
 func (s *EmbeddedStorage) Connect(ctx context.Context, config config.Config) error {
+	_ = ctx
+	_ = config
 	return nil
 }
 
 func (s *EmbeddedStorage) Close(ctx context.Context) error {
+	_ = ctx
 	return nil
 }
 

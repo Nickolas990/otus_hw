@@ -3,11 +3,14 @@ package internalhttp
 import (
 	"context"
 	"errors"
-	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/app"
-	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
 	"log"
 	"net/http"
 	"time"
+
+	//nolint:depguard
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/app"
+	//nolint:depguard
+	"github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/internal/logger"
 )
 
 type Server struct {
@@ -66,7 +69,11 @@ func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
 	// Обработка запроса к эндпоинту /hello
 	_ = r
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Hello, World!"))
+	_, err := w.Write([]byte("Hello, World!"))
+	if err != nil {
+		log.Printf("Error writing response: %v", err)
+		return
+	}
 }
 
 func (s *Server) Stop(ctx context.Context) error {

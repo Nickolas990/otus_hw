@@ -1,4 +1,7 @@
 run:
+  skip-dirs:
+    - ^\.go
+    - ^pkg/mod
   tests: true
   build-tags:
     - bench

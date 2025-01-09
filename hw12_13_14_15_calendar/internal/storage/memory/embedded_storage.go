@@ -24,7 +24,7 @@ type EmbeddedStorage struct {
 	mu       sync.RWMutex
 }
 
-func (s *EmbeddedStorage) Modify(id string, updatedEvent storage.Event) (storage.Event, error) {
+func (s *EmbeddedStorage) Update(id string, updatedEvent storage.Event) (storage.Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -87,7 +87,7 @@ func New(logger logger.Logger) *EmbeddedStorage {
 	}
 }
 
-func (s *EmbeddedStorage) Add(event storage.Event) (storage.Event, error) {
+func (s *EmbeddedStorage) Create(event storage.Event) (storage.Event, error) {
 	var eventSlice []storage.Event
 
 	s.mu.RLock()

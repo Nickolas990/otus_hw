@@ -81,7 +81,7 @@ func main() {
 	}
 	calendar := app.New(logg, storage)
 
-	address := cfg.HTTPServer.Host + ":" + cfg.HTTPServer.Port
+	address := cfg.HTTPS.Host + ":" + cfg.HTTPS.Port
 
 	server := internalhttp.NewServer(logg, calendar, address)
 

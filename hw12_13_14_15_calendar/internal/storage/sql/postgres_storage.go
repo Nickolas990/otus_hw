@@ -47,7 +47,7 @@ FROM events WHERE id = $1`
 	return event, nil
 }
 
-func (s *PostgresStorage) Add(event storage.Event) (storage.Event, error) {
+func (s *PostgresStorage) Create(event storage.Event) (storage.Event, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return storage.Event{}, err
@@ -159,7 +159,7 @@ func (s *PostgresStorage) Delete(id string) error {
 	return nil
 }
 
-func (s *PostgresStorage) Modify(id string, event storage.Event) (storage.Event, error) {
+func (s *PostgresStorage) Update(id string, event storage.Event) (storage.Event, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return storage.Event{}, fmt.Errorf("failed to start transaction: %w", err)

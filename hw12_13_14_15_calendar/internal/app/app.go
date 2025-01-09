@@ -11,9 +11,9 @@ import (
 )
 
 type Application interface {
-	CreateEvent(ctx context.Context, id, title string) (storage.Event, error)
+	CreateEvent(ctx context.Context, event storage.Event) (storage.Event, error)
 	DeleteEvent(ctx context.Context, id string) error
-	ModifyEvent(ctx context.Context, id, title string) (storage.Event, error)
+	UpdateEvent(ctx context.Context, id string, event storage.Event) (storage.Event, error)
 	EventListForDate(ctx context.Context, date time.Time) ([]storage.Event, error)
 	EventListForWeek(ctx context.Context, date time.Time) ([]storage.Event, error)
 	EventListForMonth(ctx context.Context, date time.Time) ([]storage.Event, error)
@@ -31,12 +31,12 @@ func New(logger logger.Logger, storage storage.Storage) *App {
 	}
 }
 
-func (a *App) CreateEvent(ctx context.Context, id, title string) (storage.Event, error) {
+func (a *App) CreateEvent(ctx context.Context, event storage.Event) (storage.Event, error) {
 	select {
 	case <-ctx.Done():
 		return storage.Event{}, ctx.Err()
 	default:
-		return a.storage.Add(storage.Event{ID: id, Title: title})
+		return a.storage.Create(event)
 	}
 }
 
@@ -49,12 +49,12 @@ func (a *App) DeleteEvent(ctx context.Context, id string) error {
 	}
 }
 
-func (a *App) ModifyEvent(ctx context.Context, id, title string) (storage.Event, error) {
+func (a *App) UpdateEventUpdateEvent(ctx context.Context, id string, event storage.Event) (storage.Event, error) {
 	select {
 	case <-ctx.Done():
 		return storage.Event{}, ctx.Err()
 	default:
-		return a.storage.Modify(id, storage.Event{ID: id, Title: title})
+		return a.storage.Update(id, event)
 	}
 }
 

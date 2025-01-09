@@ -1,10 +1,14 @@
 package config
 
 type Config struct {
-	HTTPServer struct {
+	HTTPS struct {
 		Host string `mapstructure:"host"`
 		Port string `mapstructure:"port"`
 	} `mapstructure:"http_server"`
+	GRPC struct {
+		Host string `mapstructure:"host"`
+		Port string `mapstructure:"port"`
+	}
 	Logger struct {
 		Level string `mapstructure:"level"`
 	} `mapstructure:"logger"`

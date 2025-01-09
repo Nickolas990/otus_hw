@@ -4,6 +4,8 @@ package logger
 import "github.com/sirupsen/logrus"
 
 type Logger interface {
+	Println(args ...interface{})
+	Printf(format string, args ...interface{})
 	Debug(args ...interface{})
 	Debugf(format string, args ...interface{})
 	Info(args ...interface{})
@@ -74,4 +76,12 @@ func (l *LogrusLogger) Fatal(args ...interface{}) {
 
 func (l *LogrusLogger) Fatalf(format string, args ...interface{}) {
 	l.Logger.Fatalf(format, args...)
+}
+
+func (l *LogrusLogger) Println(args ...interface{}) {
+	l.Logger.Println(args...)
+}
+
+func (l *LogrusLogger) Printf(format string, args ...interface{}) {
+	l.Logger.Printf(format, args...)
 }

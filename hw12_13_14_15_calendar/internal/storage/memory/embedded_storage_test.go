@@ -22,14 +22,14 @@ func TestEmbeddedStorage(t *testing.T) {
 		s.Clear() // Очищаем хранилище после каждого теста
 	})
 
-	t.Run("Add", func(t *testing.T) {
+	t.Run("Create", func(t *testing.T) {
 		event := storage.Event{
 			Title:     "Test Event",
 			StartTime: testDate,
 			EndTime:   testDate.Add(time.Hour),
 		}
 
-		storedEvent, err := s.Add(event)
+		storedEvent, err := s.Create(event)
 		require.NoError(t, err)
 
 		foundEvent, err := s.Get(storedEvent.ID)
@@ -46,7 +46,7 @@ func TestEmbeddedStorage(t *testing.T) {
 			EndTime:   testDate.Add(time.Hour),
 		}
 
-		storedEvent, err := s.Add(event)
+		storedEvent, err := s.Create(event)
 		require.NoError(t, err)
 
 		err = s.Delete(storedEvent.ID)
@@ -56,19 +56,19 @@ func TestEmbeddedStorage(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("Modify", func(t *testing.T) {
+	t.Run("Update", func(t *testing.T) {
 		s.Clear()
 		// Добавляем событие для модификации
 		event := storage.Event{
-			Title:     "Event to Modify",
+			Title:     "Event to Update",
 			StartTime: time.Now(),
 			EndTime:   time.Now().Add(time.Hour),
 		}
-		storedEvent, err := s.Add(event)
+		storedEvent, err := s.Create(event)
 		require.NoError(t, err)
 
 		event.Title = "Modified Event"
-		modifiedEvent, err := s.Modify(storedEvent.ID, event)
+		modifiedEvent, err := s.Update(storedEvent.ID, event)
 		require.NoError(t, err)
 
 		foundEvent, err := s.Get(modifiedEvent.ID)
@@ -143,7 +143,7 @@ func TestEmbeddedStorage_AddConflictEvent(t *testing.T) {
 		EndTime:   time.Now().Add(2 * time.Hour), // Длится 2 часа
 	}
 
-	_, err := s.Add(firstEvent)
+	_, err := s.Create(firstEvent)
 	require.NoError(t, err)
 
 	// Пытаемся добавить второе событие, которое пересекается по времени с первым
@@ -153,7 +153,7 @@ func TestEmbeddedStorage_AddConflictEvent(t *testing.T) {
 		EndTime:   firstEvent.EndTime.Add(1 * time.Hour),   // Заканчивается через 1 час после окончания первого события
 	}
 
-	_, err = s.Add(conflictingEvent)
+	_, err = s.Create(conflictingEvent)
 	require.Error(t, err, "expected error when adding a conflicting event")
 }
 
@@ -172,7 +172,7 @@ func TestEmbeddedStorage_ModifyConflictEvent(t *testing.T) {
 		StartTime: time.Now().Add(24 * time.Hour), // Начнется через 24 часа
 		EndTime:   time.Now().Add(26 * time.Hour), // Закончится через 26 часов
 	}
-	firstEvent, err := s.Add(firstEvent)
+	firstEvent, err := s.Create(firstEvent)
 	require.NoError(t, err)
 
 	// Добавляем второе событие
@@ -181,14 +181,14 @@ func TestEmbeddedStorage_ModifyConflictEvent(t *testing.T) {
 		StartTime: time.Now().Add(48 * time.Hour), // Начнется через 48 часов
 		EndTime:   time.Now().Add(50 * time.Hour), // Закончится через 50 часов
 	}
-	secondEvent, err = s.Add(secondEvent)
+	secondEvent, err = s.Create(secondEvent)
 	require.NoError(t, err)
 
 	// Пытаемся изменить второе событие так, чтобы оно конфликтовало с первым
 	secondEvent.StartTime = firstEvent.StartTime.Add(time.Hour) // Должно вызвать конфликт
 	secondEvent.EndTime = firstEvent.EndTime.Add(time.Hour)
 
-	_, err = s.Modify(secondEvent.ID, secondEvent)
+	_, err = s.Update(secondEvent.ID, secondEvent)
 	require.Error(t, err, "expected error when modifying an event to a conflicting time")
 }
 
@@ -200,7 +200,7 @@ func addTestEvent(t *testing.T, s *EmbeddedStorage, start, end time.Duration, ba
 		EndTime:   baseDate.Add(end),
 		// Другие поля события
 	}
-	addedEvent, err := s.Add(event)
+	addedEvent, err := s.Create(event)
 	require.NoError(t, err)
 	return addedEvent
 }

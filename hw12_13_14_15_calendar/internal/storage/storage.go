@@ -9,9 +9,9 @@ import (
 )
 
 type Storage interface {
-	Add(event Event) (Event, error)
+	Create(event Event) (Event, error)
 	Delete(id string) error
-	Modify(id string, event Event) (Event, error)
+	Update(id string, event Event) (Event, error)
 	Get(id string) (Event, error)
 	EventListForDate(date time.Time) ([]Event, error)
 	EventListForWeek(date time.Time) ([]Event, error)

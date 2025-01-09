@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package event;
+
+option go_package = "github.com/Nickolas990/otus_hw/hw12_13_14_15_calendar/api/grpc/pb";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// Описание события
+message Event {
+  string id = 1;
+  string title = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+  string description = 5;
+  string user_id = 6;
+  google.protobuf.Timestamp notification_time = 7;
+}
+
+// Сервис
+service EventService {
+  rpc CreateEvent(CreateEventRequest) returns (CreateUpdateEventResponse);
+  rpc UpdateEvent(UpdateEventRequest) returns (CreateUpdateEventResponse);
+  rpc DeleteEvent(DeleteEventRequest) returns (google.protobuf.Empty);
+  rpc EventListForDate(EventListRequest) returns (EventListResponse);
+  rpc EventListForWeek(EventListRequest) returns (EventListResponse);
+  rpc EventListForMonth(EventListRequest) returns (EventListResponse);
+}
+
+// Запросы
+message CreateEventRequest {
+  Event event = 1;
+}
+
+message UpdateEventRequest {
+  string id = 1;
+  Event event = 2;
+}
+
+message DeleteEventRequest {
+  string id = 1;
+}
+
+message EventListRequest {
+  google.protobuf.Timestamp date = 1;
+}
+
+// Ответы
+message CreateUpdateEventResponse {
+  Event event = 1;
+}
+
+message EventListResponse {
+  repeated Event events = 1;
+}
